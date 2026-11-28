@@ -79,7 +79,8 @@ build dependency that exists today.
 - `core` is the only client of `optimizer`, through `contracts/optimization-api/v1`. `optimizer` serves
   that contract.
 - Neither side owns a contract, so the contracts sit at the root, outside every component.
-- Today `contracts/client-api/v1`, served under `/api/v1`, declares no operation yet, and
+- Today `contracts/client-api/v1`, served under `/api/v1`, declares Planning's six operations, none
+  served yet, and
   `contracts/optimization-api/v1` declares one: `GET /health/liveness`. `core` has no client for
   the optimization API yet.
 - `research` installs `optimizer` from `../backend/optimizer` as an editable path dependency, and adds
@@ -547,8 +548,8 @@ building blocks of every form's Zod schema) ([ADR-153](../ADRs/ADR-153-the-web-a
 compiles, and its `build` script is its type check. The other two, `api-client` and `map-style`, are
 placeholders: a folder is not a package until the ticket that first puts code in it adds its
 `package.json` ([ADR-039](../ADRs/ADR-039-one-pnpm-workspace-for-both-apps-and-shared-packages.md),
-[ADR-130][ADR-130]). `contracts/client-api/v1` declares no operation yet, so neither app has an
-API client.
+[ADR-130][ADR-130]). `contracts/client-api/v1` declares six operations, but no generator is set up
+yet, so neither app has an API client.
 [ADR-043](../ADRs/ADR-043-generated-code-from-both-contracts-and-problem-details-errors.md)
 (Accepted, not in the tree yet) generates code from the contracts on both sides.
 

@@ -10,6 +10,14 @@ info:
     then, a development or test core signs in as a seeded account every call whose `Host` names a
     loopback host, that carries no `Sec-Fetch-Site` or one of `same-origin` or `none`, and that
     presents neither an `Authorization` header nor the refresh cookie; any other call is refused.
+
+    In a body, a date is an ISO 8601 calendar date in Israel, and a moment or a time of a plan's
+    day is an RFC 3339 `date-time`, which the core writes in UTC with `Z`; a client accepts any
+    offset and shows it in `Asia/Jerusalem` (ADR-088, ADR-155). A problem's `params` keep the forms
+    `Problem.params` names. An optional field with no value is left out, never sent as `null`.
+
+    Every answer carries `Cache-Control: no-store`, so no browser or phone keeps a plan or a
+    customer's place in its HTTP cache (ADR-076).
   license:
     name: Proprietary, all rights reserved
     identifier: LicenseRef-DispatchFlow-Proprietary
@@ -18,9 +26,372 @@ servers:
     description: >-
       Relative to wherever the core backend is deployed. The path carries the contract's major
       version, so a v2 can be served beside v1 (ADR-006).
-paths: {}
+security:
+  - accessToken: []
+tags:
+  - name: planning-plans
+    description: >-
+      A delivery date's plans (Planning): list a date's plans, open one, read one, and request its
+      solve.
+  - name: planning-solve-jobs
+    description: >-
+      Solve jobs (Planning): where a requested solve is, and why it failed if it did.
+  - name: planning-routes
+    description: >-
+      A plan's routes (Planning): each route's line along the roads, for the map.
+paths:
+  /plans:
+    get:
+      operationId: listPlansOnDate
+      summary: List a date's plans
+      description: >-
+        The plans of one delivery date, oldest first: at most one that isn't cancelled, after the
+        cancelled ones (FR-15, BR-34, FR-336). Empty when the date has none, so the dispatcher opens
+        one.
+      tags:
+        - planning-plans
+      x-capability: PLAN_AND_RUN_THE_DAY
+      parameters:
+        - name: date
+          in: query
+          required: true
+          description: The delivery date.
+          schema:
+            $ref: '#/components/schemas/DeliveryDate'
+      responses:
+        '200':
+          description: The date's plans.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DatePlans'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/AccessTokenRefused'
+        '422':
+          $ref: '#/components/responses/DateOutOfRange'
+        default:
+          $ref: '#/components/responses/UnexpectedProblem'
+    post:
+      operationId: openPlan
+      summary: Open a date's plan
+      description: >-
+        Opens a draft plan for a delivery date that has no plan, or whose plans are all cancelled
+        (FR-15, BR-34). The date is today or later (BR-118).
+      tags:
+        - planning-plans
+      x-capability: PLAN_AND_RUN_THE_DAY
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OpenPlanRequest'
+      responses:
+        '201':
+          description: The plan is open, as a draft.
+          headers:
+            Location:
+              description: The new plan's path, `/api/v1/plans/{planId}`.
+              schema:
+                type: string
+                format: uri-reference
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OpenedPlan'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/AccessTokenRefused'
+        '422':
+          description: |-
+            A rule refused the plan:
+
+            | Code | Rule | `params` |
+            |---|---|---|
+            | `DATE_IN_PAST` | The date is before today (BR-118). | `date` |
+            | `PLAN_ALREADY_EXISTS` | The date has a plan that isn't cancelled (BR-34). | `date`, and `existing`, that plan's ID, so the client opens it instead |
+            | `DATE_OUT_OF_RANGE` | The date's year is outside 1 to 9999. | `date` |
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '503':
+          $ref: '#/components/responses/TryAgainLater'
+        default:
+          $ref: '#/components/responses/UnexpectedProblem'
+  /plans/{planId}:
+    get:
+      operationId: getPlan
+      summary: Read a plan
+      description: >-
+        One plan as the planning workspace shows it: its state, its routes and stops with their
+        planned times, its dropped orders with the reason and fact behind each, and the vehicles its
+        last solve left out (FR-16, FR-18, FR-24, FR-144, FR-148, FR-197). It holds Planning's data
+        only: an order's window and location, and a vehicle's capacity, come from those modules'
+        operations.
+      tags:
+        - planning-plans
+      x-capability: PLAN_AND_RUN_THE_DAY
+      parameters:
+        - $ref: '#/components/parameters/PlanId'
+      responses:
+        '200':
+          description: The plan.
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlanWorkspace'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/AccessTokenRefused'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        default:
+          $ref: '#/components/responses/UnexpectedProblem'
+  /plans/{planId}/solves:
+    post:
+      operationId: requestSolve
+      summary: Request a plan's solve
+      description: >-
+        Queues a solve of a draft or ready plan, which turns the plan to solving (FR-16, FR-19,
+        BR-12, BR-60, BR-76). The search runs in the background; `getSolveProgress` follows it, at the
+        job's `Location`.
+      tags:
+        - planning-plans
+      x-capability: PLAN_AND_RUN_THE_DAY
+      parameters:
+        - $ref: '#/components/parameters/PlanId'
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: false
+        description: Optional; without it, the solve takes the default limit.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RequestSolveRequest'
+      responses:
+        '202':
+          description: The solve is queued.
+          headers:
+            Location:
+              description: The solve job's path, `/api/v1/solve-jobs/{jobId}`.
+              schema:
+                type: string
+                format: uri-reference
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestedSolve'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/AccessTokenRefused'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '412':
+          $ref: '#/components/responses/StaleVersion'
+        '422':
+          description: |-
+            A rule refused the solve:
+
+            | Code | Rule | `params` |
+            |---|---|---|
+            | `PLAN_NOT_DRAFT_OR_READY` | Only a draft or ready plan is solved, so not one that is solving already, published, completed, cancelled or abandoned (BR-12, BR-60). | `plan` |
+            | `DATE_IN_PAST` | The plan's delivery date is before today (BR-118). | `date` |
+            | `SOLVE_QUEUE_FULL` | The lane's queue holds its limit of jobs (BR-112). Try again once a queued solve has started. | `lane` and `limit` |
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '503':
+          $ref: '#/components/responses/TryAgainLater'
+        default:
+          $ref: '#/components/responses/UnexpectedProblem'
+  /solve-jobs/{jobId}:
+    get:
+      operationId: getSolveProgress
+      summary: Read a solve's progress
+      description: >-
+        Where a solve job is: queued, building its travel-time matrix, searching, done, or failed
+        and why (FR-16, FR-65, FR-142). A client measures elapsed time from `asOf`, the server's
+        time of the answer, so its own clock doesn't skew it.
+      tags:
+        - planning-solve-jobs
+      x-capability: PLAN_AND_RUN_THE_DAY
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          description: The solve job's ID.
+          schema:
+            $ref: '#/components/schemas/JobId'
+      responses:
+        '200':
+          description: The job's progress.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SolveProgress'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/AccessTokenRefused'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        default:
+          $ref: '#/components/responses/UnexpectedProblem'
+  /routes/{routeId}/shape:
+    get:
+      operationId: getRouteShape
+      summary: Read a route's line along the roads
+      description: >-
+        One route's line along the road network, which the map draws in the colour and with the
+        label of its index (FR-24, FR-148, FR-240).
+      tags:
+        - planning-routes
+      x-capability: PLAN_AND_RUN_THE_DAY
+      parameters:
+        - name: routeId
+          in: path
+          required: true
+          description: The route's ID.
+          schema:
+            $ref: '#/components/schemas/RouteId'
+      responses:
+        '200':
+          description: The route's line.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RouteShape'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/AccessTokenRefused'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          description: >-
+            `ROAD_NETWORK_UNAVAILABLE`: the road-routing service could not draw the line. `params`
+            is empty. The map draws the route without its line, and asks again after
+            `Retry-After`.
+          headers:
+            Retry-After:
+              $ref: '#/components/headers/RetryAfter'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        default:
+          $ref: '#/components/responses/UnexpectedProblem'
 components:
+  securitySchemes:
+    accessToken:
+      type: http
+      scheme: bearer
+      description: >-
+        The access token sign-in issues, sent as `Authorization: Bearer <token>`. A missing,
+        expired, malformed or revoked one, or one whose session was revoked, answers 401
+        `ACCESS_TOKEN_REFUSED`. Sign-in arrives with the identity context; until then every
+        presented token is refused, and the stand-in session of a development or test core signs
+        calls in, as the API's description says.
+  parameters:
+    PlanId:
+      name: planId
+      in: path
+      required: true
+      description: The plan's ID.
+      schema:
+        $ref: '#/components/schemas/PlanId'
+    IfMatch:
+      name: If-Match
+      in: header
+      required: true
+      description: >-
+        The plan's `ETag`, exactly as `openPlan` or `getPlan` answered it (BR-76, ADR-057). A missing
+        one answers 400 `INVALID_REQUEST` with a `MISSING_PARAMETER` item, and a wildcard, a weak tag
+        or a list 400 with a `WRONG_FORMAT` item; one that is no longer current answers 412
+        `STALE_VERSION`.
+      schema:
+        type: string
+        pattern: '^"(0|[1-9][0-9]{0,17})"$'
+  headers:
+    ETag:
+      description: >-
+        The plan's version, as a strong entity tag, `"<version>"`. The next change to the plan sends
+        it as `If-Match` (BR-76, ADR-057).
+      schema:
+        type: string
+        pattern: '^"(0|[1-9][0-9]{0,17})"$'
+    RetryAfter:
+      description: The seconds to wait before trying again.
+      schema:
+        type: integer
+        minimum: 0
   responses:
+    InvalidRequest:
+      description: >-
+        `INVALID_REQUEST`: the request breaks this contract. `errors` names each failing field or
+        parameter.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    AccessTokenRefused:
+      description: >-
+        `ACCESS_TOKEN_REFUSED`: the call has no signed-in caller. `params` is empty.
+      headers:
+        WWW-Authenticate:
+          description: Exactly `Bearer`.
+          schema:
+            type: string
+            const: Bearer
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    NotFound:
+      description: >-
+        `NOT_FOUND`: no record has the ID in the path. `params` has its `kind` and `id`.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    StaleVersion:
+      description: >-
+        `STALE_VERSION`: `If-Match` isn't the plan's current version, because the plan changed
+        since it was read. `params` has `kind` and `id`. Not retried: reload the plan.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    DateOutOfRange:
+      description: >-
+        `DATE_OUT_OF_RANGE`: the date's year is outside 1 to 9999. `params` has the `date`.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    TryAgainLater:
+      description: >-
+        `TRY_AGAIN_LATER`: the call lost a race for a record, or waited too long for a lock, on
+        every try.
+      headers:
+        Retry-After:
+          $ref: '#/components/headers/RetryAfter'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
     UnexpectedProblem:
       description: >-
         An error any operation can answer, with one of the codes `Problem` lists. The body never
@@ -166,3 +537,723 @@ components:
             - query
             - header
             - cookie
+    PlanId:
+      type: string
+      format: uuid
+    JobId:
+      type: string
+      format: uuid
+    RouteId:
+      type: string
+      format: uuid
+    StopId:
+      type: string
+      format: uuid
+    OrderId:
+      type: string
+      format: uuid
+    VehicleId:
+      type: string
+      format: uuid
+    AccountId:
+      type: string
+      format: uuid
+    DeliveryDate:
+      type: string
+      format: date
+      description: A delivery date, a calendar day in Israel (ADR-088).
+    Instant:
+      type: string
+      format: date-time
+      description: >-
+        A point in time, as an RFC 3339 `date-time`. The core writes it in UTC with `Z`; a client
+        accepts any offset, and shows it in Israel's time, `Asia/Jerusalem` (ADR-088, ADR-155).
+    PlanTime:
+      type: string
+      format: date-time
+      description: >-
+        A time of a plan's day, as an RFC 3339 `date-time` that the core works out exactly from the
+        elapsed seconds since the delivery date's midnight in Israel. It may fall after the date's
+        end, when a route breaks a time rule or a drop's fact passes the day, so a client shows the
+        date beside a time that isn't on the plan's delivery date. Written in UTC with `Z`; a client
+        accepts any offset (ADR-088, ADR-112, ADR-155).
+    Kilograms:
+      type: number
+      exclusiveMinimum: 0
+      description: A weight in kilograms, with at most two decimals.
+    Litres:
+      type: number
+      exclusiveMinimum: 0
+      description: A volume in litres, with at most two decimals.
+    RouteIndex:
+      type: integer
+      minimum: 1
+      maximum: 30
+      description: >-
+        A route's stable index, its label and its colour slot on the map, the timeline and lists
+        (FR-148, FR-240). A re-solve keeps a vehicle's index.
+    OpenPlanRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - date
+      properties:
+        date:
+          $ref: '#/components/schemas/DeliveryDate'
+    OpenedPlan:
+      type: object
+      required:
+        - planId
+      properties:
+        planId:
+          $ref: '#/components/schemas/PlanId'
+    RequestSolveRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        limitSeconds:
+          type: integer
+          minimum: 5
+          maximum: 60
+          description: >-
+            How long the search may run, in whole seconds (NFR-06, FR-19). Without it, the planning
+            settings' default, which an Admin sets (FR-183). A limit outside 5 to 60 answers 400
+            before the rule's own `SOLVE_LIMIT_OUT_OF_RANGE` could, so no client meets that code.
+    RequestedSolve:
+      type: object
+      required:
+        - jobId
+      properties:
+        jobId:
+          $ref: '#/components/schemas/JobId'
+    PlanStatus:
+      description: >-
+        A plan's state (FR-16). `kind` names it; the list is closed for v1 (ADR-155).
+      oneOf:
+        - $ref: '#/components/schemas/PlanDraft'
+        - $ref: '#/components/schemas/PlanSolving'
+        - $ref: '#/components/schemas/PlanReady'
+        - $ref: '#/components/schemas/PlanPublished'
+        - $ref: '#/components/schemas/PlanCompleted'
+        - $ref: '#/components/schemas/PlanCancelled'
+        - $ref: '#/components/schemas/PlanAbandoned'
+      discriminator:
+        propertyName: kind
+        mapping:
+          DRAFT: '#/components/schemas/PlanDraft'
+          SOLVING: '#/components/schemas/PlanSolving'
+          READY: '#/components/schemas/PlanReady'
+          PUBLISHED: '#/components/schemas/PlanPublished'
+          COMPLETED: '#/components/schemas/PlanCompleted'
+          CANCELLED: '#/components/schemas/PlanCancelled'
+          ABANDONED: '#/components/schemas/PlanAbandoned'
+    PlanDraft:
+      type: object
+      description: Opened and never solved, or its first solve failed.
+      required:
+        - kind
+      properties:
+        kind:
+          type: string
+          const: DRAFT
+    PlanSolving:
+      type: object
+      description: A solve is queued or running, and only its job may end it (BR-59).
+      required:
+        - kind
+        - jobId
+      properties:
+        kind:
+          type: string
+          const: SOLVING
+        jobId:
+          $ref: '#/components/schemas/JobId'
+    PlanReady:
+      type: object
+      description: Solved, and open to edits and publishing (BR-60, BR-61).
+      required:
+        - kind
+      properties:
+        kind:
+          type: string
+          const: READY
+    PlanPublished:
+      type: object
+      description: The drivers' plan, changed only by new revisions (BR-47, BR-77).
+      required:
+        - kind
+      properties:
+        kind:
+          type: string
+          const: PUBLISHED
+    PlanCompleted:
+      type: object
+      description: Its date is over; only late outcomes still change it (BR-102).
+      required:
+        - kind
+      properties:
+        kind:
+          type: string
+          const: COMPLETED
+    PlanCancelled:
+      type: object
+      description: Cancelled for a day that doesn't run; final (BR-103).
+      required:
+        - kind
+      properties:
+        kind:
+          type: string
+          const: CANCELLED
+    PlanAbandoned:
+      type: object
+      description: Never published by the midnight after its date; final and read-only (BR-127).
+      required:
+        - kind
+      properties:
+        kind:
+          type: string
+          const: ABANDONED
+    DatePlans:
+      type: object
+      required:
+        - date
+        - plans
+      properties:
+        date:
+          $ref: '#/components/schemas/DeliveryDate'
+        plans:
+          type: array
+          description: The date's plans, oldest first; empty when it has none.
+          items:
+            $ref: '#/components/schemas/DatePlan'
+    DatePlan:
+      type: object
+      required:
+        - planId
+        - status
+        - openedAt
+      properties:
+        planId:
+          $ref: '#/components/schemas/PlanId'
+        status:
+          $ref: '#/components/schemas/PlanStatus'
+        openedAt:
+          $ref: '#/components/schemas/Instant'
+    PlanWorkspace:
+      type: object
+      description: >-
+        The plan's version travels in the `ETag` header, not in the body (ADR-057).
+      required:
+        - planId
+        - date
+        - status
+        - routes
+        - dropped
+        - excluded
+      properties:
+        planId:
+          $ref: '#/components/schemas/PlanId'
+        date:
+          $ref: '#/components/schemas/DeliveryDate'
+        status:
+          $ref: '#/components/schemas/PlanStatus'
+        routes:
+          type: array
+          description: >-
+            The plan's routes, in its order, withdrawn ones included; empty before its first solve.
+          items:
+            $ref: '#/components/schemas/Route'
+        dropped:
+          type: array
+          description: The orders the plan leaves unserved, each with its reason (FR-18, FR-144).
+          items:
+            $ref: '#/components/schemas/DroppedOrder'
+        excluded:
+          type: array
+          description: The vehicles the plan's last solve left out, each with its cause (FR-197).
+          items:
+            $ref: '#/components/schemas/ExcludedVehicle'
+    Route:
+      type: object
+      required:
+        - routeId
+        - index
+        - vehicleId
+        - driverId
+        - withdrawn
+        - stops
+      properties:
+        routeId:
+          $ref: '#/components/schemas/RouteId'
+        index:
+          $ref: '#/components/schemas/RouteIndex'
+        vehicleId:
+          $ref: '#/components/schemas/VehicleId'
+        driverId:
+          $ref: '#/components/schemas/AccountId'
+        withdrawn:
+          type: boolean
+          description: >-
+            Whether a re-optimization withdrew it mid-route; it keeps the stops it made and its
+            index (FR-267).
+        leavesAt:
+          $ref: '#/components/schemas/PlanTime'
+          description: >-
+            When it leaves its start depot; absent when the validator hasn't timed the route, or
+            couldn't.
+        returnsAt:
+          $ref: '#/components/schemas/PlanTime'
+          description: >-
+            When it returns to its end depot; absent when the validator hasn't timed the route, or
+            couldn't.
+        stops:
+          type: array
+          description: Its stops, in planned order.
+          items:
+            $ref: '#/components/schemas/Stop'
+    Stop:
+      type: object
+      required:
+        - stopId
+        - orderId
+        - attempt
+      properties:
+        stopId:
+          $ref: '#/components/schemas/StopId'
+        orderId:
+          $ref: '#/components/schemas/OrderId'
+        attempt:
+          type: integer
+          minimum: 1
+          description: Which attempt at delivering the order this stop is.
+        plannedArrival:
+          $ref: '#/components/schemas/PlanTime'
+          description: >-
+            When the vehicle reaches the stop; absent when the validator hasn't timed it, or
+            couldn't (BR-14).
+    DroppedOrder:
+      type: object
+      required:
+        - orderId
+        - attempt
+        - reason
+      properties:
+        orderId:
+          $ref: '#/components/schemas/OrderId'
+        attempt:
+          type: integer
+          minimum: 1
+          description: The attempt the plan leaves unserved.
+        reason:
+          $ref: '#/components/schemas/DropReason'
+    DropReason:
+      description: >-
+        Why an order is unserved, with the fact that caused it: FR-223's full list (FR-144). `kind`
+        names it; the list is closed for v1 (ADR-155).
+      oneOf:
+        - $ref: '#/components/schemas/DropMissingLocation'
+        - $ref: '#/components/schemas/DropNoVehicleAvailable'
+        - $ref: '#/components/schemas/DropUnreachableLocation'
+        - $ref: '#/components/schemas/DropRemovedByDispatcher'
+        - $ref: '#/components/schemas/DropPinNotHonoured'
+        - $ref: '#/components/schemas/DropCapacity'
+        - $ref: '#/components/schemas/DropTimeWindow'
+        - $ref: '#/components/schemas/DropShift'
+        - $ref: '#/components/schemas/DropDepotHours'
+        - $ref: '#/components/schemas/DropVehicleLimit'
+        - $ref: '#/components/schemas/DropDisplaced'
+      discriminator:
+        propertyName: kind
+        mapping:
+          MISSING_LOCATION: '#/components/schemas/DropMissingLocation'
+          NO_VEHICLE_AVAILABLE: '#/components/schemas/DropNoVehicleAvailable'
+          UNREACHABLE_LOCATION: '#/components/schemas/DropUnreachableLocation'
+          REMOVED_BY_DISPATCHER: '#/components/schemas/DropRemovedByDispatcher'
+          PIN_NOT_HONOURED: '#/components/schemas/DropPinNotHonoured'
+          CAPACITY: '#/components/schemas/DropCapacity'
+          TIME_WINDOW: '#/components/schemas/DropTimeWindow'
+          SHIFT: '#/components/schemas/DropShift'
+          DEPOT_HOURS: '#/components/schemas/DropDepotHours'
+          VEHICLE_LIMIT: '#/components/schemas/DropVehicleLimit'
+          DISPLACED: '#/components/schemas/DropDisplaced'
+    DropMissingLocation:
+      type: object
+      description: The order's customer has no coordinates (BR-14).
+      required:
+        - kind
+      properties:
+        kind:
+          type: string
+          const: MISSING_LOCATION
+    DropNoVehicleAvailable:
+      type: object
+      description: >-
+        No vehicle can drive a route on the date at all, for example because every depot lacks
+        coordinates (FR-197). The plan's `excluded` vehicles are its fact.
+      required:
+        - kind
+      properties:
+        kind:
+          type: string
+          const: NO_VEHICLE_AVAILABLE
+    DropUnreachableLocation:
+      type: object
+      description: No usable vehicle can reach the order by road and return to its end depot (FR-66).
+      required:
+        - kind
+      properties:
+        kind:
+          type: string
+          const: UNREACHABLE_LOCATION
+    DropRemovedByDispatcher:
+      type: object
+      description: A dispatcher took the order's stop off its route (FR-146).
+      required:
+        - kind
+      properties:
+        kind:
+          type: string
+          const: REMOVED_BY_DISPATCHER
+    DropPinNotHonoured:
+      type: object
+      description: The order's pin can't be honoured (FR-228).
+      required:
+        - kind
+        - pin
+        - targetOut
+      properties:
+        kind:
+          type: string
+          const: PIN_NOT_HONOURED
+        pin:
+          $ref: '#/components/schemas/PinTarget'
+        targetOut:
+          type: boolean
+          description: >-
+            `true` when the pinned vehicle or driver drives no route in the solve, `false` when it
+            can't serve the order even alone.
+    PinTarget:
+      description: >-
+        What an order is pinned to (FR-91). `kind` names it; the list is closed for v1 (ADR-155).
+      oneOf:
+        - $ref: '#/components/schemas/PinToVehicle'
+        - $ref: '#/components/schemas/PinToDriver'
+      discriminator:
+        propertyName: kind
+        mapping:
+          TO_VEHICLE: '#/components/schemas/PinToVehicle'
+          TO_DRIVER: '#/components/schemas/PinToDriver'
+    PinToVehicle:
+      type: object
+      required:
+        - kind
+        - vehicleId
+      properties:
+        kind:
+          type: string
+          const: TO_VEHICLE
+        vehicleId:
+          $ref: '#/components/schemas/VehicleId'
+    PinToDriver:
+      type: object
+      required:
+        - kind
+        - driverId
+      properties:
+        kind:
+          type: string
+          const: TO_DRIVER
+        driverId:
+          $ref: '#/components/schemas/AccountId'
+    DropCapacity:
+      type: object
+      description: No vehicle that can reach the order can carry it, even alone (FR-223, FR-144).
+      required:
+        - kind
+        - weight
+        - volume
+        - largestWeightCapacity
+        - largestVolumeCapacity
+      properties:
+        kind:
+          type: string
+          const: CAPACITY
+        weight:
+          $ref: '#/components/schemas/Kilograms'
+          description: The order's weight.
+        volume:
+          $ref: '#/components/schemas/Litres'
+          description: The order's volume.
+        largestWeightCapacity:
+          $ref: '#/components/schemas/Kilograms'
+          description: The largest weight capacity among the vehicles that can reach the order.
+        largestVolumeCapacity:
+          $ref: '#/components/schemas/Litres'
+          description: The largest volume capacity among the vehicles that can reach the order.
+    DropTimeWindow:
+      type: object
+      description: >-
+        The earliest arrival of any vehicle that can carry the order is after its window ends; never
+        the reason for a leave-at-door order (BR-121).
+      required:
+        - kind
+        - windowEnd
+        - earliestArrival
+      properties:
+        kind:
+          type: string
+          const: TIME_WINDOW
+        windowEnd:
+          $ref: '#/components/schemas/PlanTime'
+          description: When the order's window ends.
+        earliestArrival:
+          $ref: '#/components/schemas/PlanTime'
+          description: The earliest such arrival, possibly after the date's end.
+    DropShift:
+      type: object
+      description: Depot to order to depot fits no vehicle's driver's shift (BR-06, BR-105, BR-119).
+      required:
+        - kind
+        - latestReturn
+        - earliestReturn
+      properties:
+        kind:
+          type: string
+          const: SHIFT
+        latestReturn:
+          $ref: '#/components/schemas/PlanTime'
+          description: The binding limit, the shift's end less the break reserve where one applies.
+        earliestReturn:
+          $ref: '#/components/schemas/PlanTime'
+          description: The earliest return, serving the order alone, possibly after the date's end.
+    DropDepotHours:
+      type: object
+      description: Depot to order to depot doesn't fit before the end depot closes (FR-195, BR-46).
+      required:
+        - kind
+        - depotCloses
+        - earliestReturn
+      properties:
+        kind:
+          type: string
+          const: DEPOT_HOURS
+        depotCloses:
+          $ref: '#/components/schemas/PlanTime'
+          description: When the end depot closes.
+        earliestReturn:
+          $ref: '#/components/schemas/PlanTime'
+          description: The earliest return, serving the order alone, possibly after the date's end.
+    DropVehicleLimit:
+      type: object
+      description: A vehicle limit prevents serving the order (FR-133, FR-201).
+      required:
+        - kind
+      properties:
+        kind:
+          type: string
+          const: VEHICLE_LIMIT
+    DropDisplaced:
+      type: object
+      description: >-
+        The order would fit alone, and other orders took its place; no single cause is named
+        (Q-51).
+      required:
+        - kind
+      properties:
+        kind:
+          type: string
+          const: DISPLACED
+    ExcludedVehicle:
+      type: object
+      required:
+        - vehicleId
+        - cause
+      properties:
+        vehicleId:
+          $ref: '#/components/schemas/VehicleId'
+        cause:
+          type: string
+          pattern: '^[A-Z][A-Z0-9]*(_[A-Z0-9]+)*$'
+          description: |-
+            Why the solve left the vehicle out (FR-197). A string, not an enum, because the
+            optimizer decides the list and it may grow, which an enum can't without a v2 (ADR-155).
+            A client shows a generic text for a cause it doesn't know. Today's causes:
+
+            | Cause | Meaning |
+            |---|---|
+            | `DEPOT_WITHOUT_LOCATION` | Its start or end depot has no coordinates (FR-197). |
+            | `NO_ROAD_BETWEEN_DEPOTS` | The road network has no route from its start to its end depot (FR-66). |
+            | `VEHICLE_UNAVAILABLE` | It was marked unavailable before it made a stop (FR-07). |
+            | `NO_DRIVER` | It was left without a driver before it made a stop (BR-106). |
+            | `SHIFT_RAN_OUT` | Its driver's shift ran out before it made a stop (BR-106). |
+            | `ROUTE_FINISHED` | Its driver finished its route (FR-68, BR-108). |
+            | `WITHDRAWN` | It still has stops it made, and is withdrawn mid-route (FR-267, BR-108). |
+
+            A daily solve gives only the first two; the rest come from a re-optimization.
+    SolveProgress:
+      type: object
+      required:
+        - jobId
+        - planId
+        - limitSeconds
+        - requestedAt
+        - phase
+        - asOf
+      properties:
+        jobId:
+          $ref: '#/components/schemas/JobId'
+        planId:
+          $ref: '#/components/schemas/PlanId'
+        limitSeconds:
+          type: integer
+          minimum: 5
+          maximum: 60
+          description: How long the search may run, in whole seconds (FR-19, BR-84).
+        requestedAt:
+          $ref: '#/components/schemas/Instant'
+        phase:
+          $ref: '#/components/schemas/SolvePhase'
+        asOf:
+          $ref: '#/components/schemas/Instant'
+          description: The server's time when it read the job, which a client measures from.
+    SolvePhase:
+      description: >-
+        Where a solve job is (FR-16, FR-142). `kind` names it; the list is closed for v1 (ADR-155).
+      oneOf:
+        - $ref: '#/components/schemas/SolveQueued'
+        - $ref: '#/components/schemas/SolveBuildingMatrix'
+        - $ref: '#/components/schemas/SolveRunning'
+        - $ref: '#/components/schemas/SolveSucceeded'
+        - $ref: '#/components/schemas/SolveFailed'
+      discriminator:
+        propertyName: kind
+        mapping:
+          QUEUED: '#/components/schemas/SolveQueued'
+          BUILDING_MATRIX: '#/components/schemas/SolveBuildingMatrix'
+          RUNNING: '#/components/schemas/SolveRunning'
+          SUCCEEDED: '#/components/schemas/SolveSucceeded'
+          FAILED: '#/components/schemas/SolveFailed'
+    SolveQueued:
+      type: object
+      description: Waiting in its lane's queue.
+      required:
+        - kind
+      properties:
+        kind:
+          type: string
+          const: QUEUED
+    SolveBuildingMatrix:
+      type: object
+      description: Claimed by its lane's worker, which is building the travel-time matrix.
+      required:
+        - kind
+        - claimedAt
+      properties:
+        kind:
+          type: string
+          const: BUILDING_MATRIX
+        claimedAt:
+          $ref: '#/components/schemas/Instant'
+    SolveRunning:
+      type: object
+      description: >-
+        Searching. The search's limit counts from `searchStartedAt`, and a search past it overruns
+        (FR-142).
+      required:
+        - kind
+        - claimedAt
+        - searchStartedAt
+      properties:
+        kind:
+          type: string
+          const: RUNNING
+        claimedAt:
+          $ref: '#/components/schemas/Instant'
+        searchStartedAt:
+          $ref: '#/components/schemas/Instant'
+    SolveSucceeded:
+      type: object
+      description: Done; the plan holds its result.
+      required:
+        - kind
+        - claimedAt
+        - searchStartedAt
+        - endedAt
+      properties:
+        kind:
+          type: string
+          const: SUCCEEDED
+        claimedAt:
+          $ref: '#/components/schemas/Instant'
+        searchStartedAt:
+          $ref: '#/components/schemas/Instant'
+        endedAt:
+          $ref: '#/components/schemas/Instant'
+    SolveFailed:
+      type: object
+      description: Failed, with its reason, which the dispatcher is told (FR-65).
+      required:
+        - kind
+        - failureReason
+        - endedAt
+      properties:
+        kind:
+          type: string
+          const: FAILED
+        failureReason:
+          type: string
+          pattern: '^[A-Z][A-Z0-9]*(_[A-Z0-9]+)*$'
+          description: |-
+            Why the job failed (FR-65, BR-86). A string, not an enum, because the list has grown
+            and may grow again, which an enum can't without a v2 (ADR-155). A client shows a
+            generic text for a reason it doesn't know. Today's reasons:
+
+            | Reason | Meaning |
+            |---|---|
+            | `QUEUED_TOO_LONG` | It waited in its queue past its limit (BR-112). |
+            | `MATRIX_TOO_LONG` | Building its travel-time matrix passed its deadline. |
+            | `OVERRAN` | Its search ran past its limit and grace (BR-32, BR-84). |
+            | `OPTIMIZER_UNAVAILABLE` | The optimization service could not be reached. |
+            | `ROAD_NETWORK_UNAVAILABLE` | The road-routing service could not build the matrix. |
+            | `INTERRUPTED` | A restart interrupted it (BR-74, BR-85). |
+            | `DATE_PASSED` | Its date passed while it was queued or running (BR-128). |
+            | `NO_ORDERS` | Its date had no uncancelled orders. |
+            | `VALIDATOR_REJECTED` | The validator rejected the solution, or no plan could hold it (BR-57). |
+            | `LOCK_NOT_HONOURED` | A locked route could not be kept (FR-238). |
+            | `SOLVER_FAILED` | The optimizer's solver failed during its search. |
+            | `NO_SOLUTION_WITHIN_BUDGET` | The optimizer found no solution within the job's limit. |
+            | `REQUEST_REFUSED` | The optimizer refused the request: a fault for the team, not the dispatcher's. |
+        endedAt:
+          $ref: '#/components/schemas/Instant'
+    RouteShape:
+      type: object
+      required:
+        - routeId
+        - index
+        - line
+      properties:
+        routeId:
+          $ref: '#/components/schemas/RouteId'
+        index:
+          $ref: '#/components/schemas/RouteIndex'
+        line:
+          type: array
+          description: >-
+            The points of the road line, in driving order, from the start depot to the end depot.
+            It passes through customers' places, so it is personal data (NFR-19).
+          items:
+            $ref: '#/components/schemas/GeoPoint'
+    GeoPoint:
+      type: object
+      required:
+        - latitude
+        - longitude
+      properties:
+        latitude:
+          type: number
+          minimum: -90
+          maximum: 90
+        longitude:
+          type: number
+          minimum: -180
+          maximum: 180

@@ -45,7 +45,7 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | [ADR-131](ADR-131-the-declared-structures-review-tightens-its-rules-and-fills-its-gaps.md) | The declared structure's review tightens its rules and fills its gaps | Accepted; extended by ADR-140 |
 | [ADR-132](ADR-132-unbuilt-bodies-say-to-be-implemented.md) | Unbuilt bodies say "To Be Implemented." and name no milestone | Accepted |
 | [ADR-133](ADR-133-a-startup-step-is-a-job-and-access-declares-one.md) | A step that runs once at startup is a `job` adapter, and Access declares one | Accepted; extended by ADR-147 |
-| [ADR-140](ADR-140-the-app-wide-web-package-sits-above-the-modules.md) | The app-wide `web` package sits above the modules, and what they need from it sits beside the kernel | Accepted; extended by ADR-147 and ADR-148; amended by ADR-142, ADR-147, ADR-148 and ADR-150 |
+| [ADR-140](ADR-140-the-app-wide-web-package-sits-above-the-modules.md) | The app-wide `web` package sits above the modules, and what they need from it sits beside the kernel | Accepted; extended by ADR-147, ADR-148 and ADR-155; amended by ADR-142, ADR-147, ADR-148 and ADR-150 |
 | [ADR-142](ADR-142-the-call-wrappers-retry-its-400s-and-its-error-endpoint-as-162-built-them.md) | The call wrapper's retry, its 400s and its error endpoint, as #162 built them | Accepted; amended by ADR-149 |
 | [ADR-147](ADR-147-the-stand-in-condition-sits-in-the-root-package-and-a-refused-access-token-answers-one-code.md) | The stand-in condition sits in the root package, a deployed environment is told by a marker and three keys, and a refused access token answers one code | Accepted; amended by ADR-148 and ADR-149 |
 | [ADR-148](ADR-148-the-stand-in-serves-only-its-own-origin-every-unsigned-api-call-answers-401-and-the-guard-outlives-the-session.md) | The stand-in serves only its own origin, every unsigned call under `/api/v1` answers 401, and the guard outlives the session | Accepted |
@@ -53,6 +53,7 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | [ADR-150](ADR-150-one-audit-helper-records-the-refusals-a-use-case-sees-and-the-contracts-handler-records-a-changing-call-it-refuses.md) | One Audit helper records the refusals a use case sees, and the contract's handler records a changing call it refuses | Accepted |
 | [ADR-043](ADR-043-generated-code-from-both-contracts-and-problem-details-errors.md) | Code is generated from both contracts on both sides, and errors are RFC 9457 Problem Details | Accepted; extended by ADR-068, ADR-073, ADR-087, ADR-094 and ADR-140; amended by ADR-123 and ADR-153 |
 | [ADR-094](ADR-094-each-pull-requests-contract-check-compares-against-its-base-branch.md) | Each pull request's contract check compares against its base branch | Accepted |
+| [ADR-155](ADR-155-the-client-api-sends-times-as-rfc-3339-instants-and-a-list-that-may-grow-as-a-string.md) | The client API sends times as RFC 3339 instants, and a list that may grow as a string | Accepted |
 | [ADR-044](ADR-044-solver-port-takes-start-budget-and-seed-and-problem-judges.md) | The solver port takes a start, a budget and a seed, and `Problem` alone judges a solution | Accepted; extended by ADR-050 and ADR-099; amended by ADR-105, ADR-120 and ADR-121 |
 | [ADR-045](ADR-045-generation-counters-revoke-tokens.md) | Generation counters on the user and the session revoke tokens | Accepted; extended by ADR-131; amended by ADR-104 |
 | [ADR-048](ADR-048-travel-times-from-buckets-and-a-buffer-with-no-live-traffic.md) | Travel times come from time-of-day buckets and a buffer, with no live traffic | Accepted; amended by ADR-098 |
@@ -97,7 +98,7 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | [ADR-107](ADR-107-live-operations-alerts-once-per-key-corrects-a-put-back-by-event-and-treats-a-reschedule-as-a-cancellation.md) | Live Operations alerts once per key, corrects a put-back by event, and treats a reschedule as a cancellation | Accepted; extended by ADR-121; amended by ADR-114 |
 | [ADR-114](ADR-114-live-operations-reaches-planning-from-its-own-listener-and-names-every-fact-it-judges.md) | Live Operations reaches Planning from its own listener, and names every fact it judges | Accepted; extended by ADR-121 |
 | [ADR-109](ADR-109-reporting-computes-exact-on-time-shares-from-current-facts-and-keeps-no-personal-data.md) | Reporting computes exact on-time shares from current facts and keeps no personal data | Accepted; extended by ADR-112 |
-| [ADR-088](ADR-088-israel-local-time-for-every-date-and-schedule.md) | Every date, time window, shift and schedule is Israel local time, held as elapsed seconds in a solve | Accepted; amended by ADR-098 |
+| [ADR-088](ADR-088-israel-local-time-for-every-date-and-schedule.md) | Every date, time window, shift and schedule is Israel local time, held as elapsed seconds in a solve | Accepted; extended by ADR-155; amended by ADR-098 |
 | [ADR-089](ADR-089-interface-languages.md) | Both apps are available in Hebrew, right to left, and in English only | Accepted; extended by ADR-143 |
 | [ADR-143](ADR-143-the-web-app-shell-declares-routes-per-area-opens-in-english-and-renders-no-style-element.md) | The web app's shell declares routes per area, opens in English, and renders no `<style>` element | Accepted; extended by ADR-153; amended by ADR-144 |
 | [ADR-144](ADR-144-the-web-apps-features-stay-apart-and-its-lower-folders-never-import-upward.md) | The web app's features stay apart, its lower folders never import upward, and sign-in stands beside the shell | Accepted; extended by ADR-153 |
@@ -318,4 +319,12 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 > reads left to right in both languages; an optional number has its own block; focus on a refusal
 > follows reading order, a window's included; a table's default cell writes text only; a screen
 > sends the newest version it knows; and the web tests run in New York's zone.
+>
+> ADR-155, on 2026-11-28, extends ADR-088 and ADR-140 for #149's planning operations: in a body,
+> every moment and time of a plan's day is an RFC 3339 `date-time`, which the core works out
+> exactly from the elapsed seconds since the date's midnight in Israel and writes in UTC, while a
+> time of day that holds on every date stays local and a problem's `params` keep their forms; a
+> list whose values carry fields is a `oneOf` with a `kind`, closed for v1; and a list of plain
+> values the optimizer decides, or that has grown, is a string with its values listed, as
+> `Problem.code` is.
 > The tech stack's [§22](../architecture/tech_stack.md#22-open-decisions) lists what is still open.
