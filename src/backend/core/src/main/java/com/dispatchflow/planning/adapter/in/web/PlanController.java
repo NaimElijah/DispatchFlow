@@ -67,6 +67,9 @@ class PlanController implements PlanningPlansApi {
             @Nullable String xApp,
             @Nullable String xAppVersion,
             @Nullable RequestSolveRequestDto requestSolveRequestDto) {
+        // The contract bounds the limit to 5 to 60 seconds, the domain's own range, so a limit that
+        // reaches here is one SolveLimit takes: none is refused outside the use case's recorded
+        // attempt (ADR-160).
         Optional<SolveLimit> limit = Optional.ofNullable(requestSolveRequestDto)
                 .map(RequestSolveRequestDto::limitSeconds)
                 .map(seconds -> SolveLimit.daily(Duration.ofSeconds(seconds)));

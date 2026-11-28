@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Stream;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -32,15 +33,19 @@ import org.springframework.test.web.servlet.assertj.MvcTestResult;
  * statuses and headers, and what the calls store.
  *
  * <p>Every test opens its plan for a date of its own, from {@link #FIRST_DATE}, far from the other
- * tests' dates, since the database is shared and never cleaned. The daily lane is shared too, and
- * refuses a sixth queued job (BR-112), so each test starts by ending every unfinished daily job,
- * its own and those other test classes left, as {@code SolveJobPersistenceIT} does inside its
- * transactions: here the calls commit.
+ * tests' dates and from any today the core's real clock reads, since the database is shared and
+ * never cleaned. The daily lane is shared too, and refuses a sixth queued job (BR-112), so each test
+ * starts and ends by ending every unfinished daily job, its own and those other test classes left,
+ * as {@code SolveJobPersistenceIT} does inside its transactions: here the calls commit, so the
+ * owner does it, as test damage goes (ADR-145 decision 8).
  */
 @IntegrationTest
 class PlanControllerIT {
 
-    private static final LocalDate FIRST_DATE = LocalDate.of(2035, 1, 1);
+    private static final LocalDate FIRST_DATE = LocalDate.of(9000, 1, 1);
+    private static final String TRACE_OF_THE_OPENING = "a1b2c3d4e5f60718293a4b5c6d7e8f90";
+    private static final String NO_PLAN = "0194d6f0-0000-7000-8000-00000000dead";
+    private static final long QUEUED_KEYS = 0x0194d6f0_0000_7000L;
     private static final ZoneId ISRAEL = ZoneId.of("Asia/Jerusalem");
     private static final String PLANS = "/api/v1/plans";
     private static final String NO_STORE_NO_TRANSFORM = "no-store, no-transform";
@@ -50,20 +55,17 @@ class PlanControllerIT {
     private MockMvcTester mvc;
 
     @Autowired
-    private JdbcClient jdbc;
-
-    @Autowired
     @DatabaseOwner
     private JdbcClient owner;
 
     @BeforeEach
-    void endEveryUnfinishedDailyJob() {
-        jdbc.sql("""
-                UPDATE planning.solve_job
-                SET phase = 'FAILED', failure_reason = 'INTERRUPTED', ended_at = requested_at,
-                    claimed_at = NULL, search_started_at = NULL
-                WHERE lane = 'DAILY' AND phase IN ('QUEUED', 'BUILDING_MATRIX', 'RUNNING')
-                """).update();
+    void emptyTheDailyLaneFirst() {
+        endEveryUnfinishedDailyJob();
+    }
+
+    @AfterEach
+    void leaveTheDailyLaneEmpty() {
+        endEveryUnfinishedDailyJob();
     }
 
     // --- openPlan
@@ -111,6 +113,7 @@ class PlanControllerIT {
                 .extractingPath("$.params.date")
                 .asString()
                 .isEqualTo(dateOf(2).toString());
+        assertThat(recordedOutcomes(traceIdOf(result))).containsExactly("REFUSED PLAN_ALREADY_EXISTS");
     }
 
     @Test
@@ -169,7 +172,7 @@ class PlanControllerIT {
      */
     @Test
     void GivenAnOpenedPlan_WhenItsRecordIsRead_ThenItNamesTheOperationAndThePlan() {
-        String traceId = UUID.randomUUID().toString().replace("-", "");
+        String traceId = TRACE_OF_THE_OPENING;
         MvcTestResult result = mvc.post()
                 .uri(PLANS)
                 .header("traceparent", "00-" + traceId + "-00f067aa0ba902b7-01")
@@ -335,11 +338,49 @@ class PlanControllerIT {
 
         assertThat(result).hasStatus(HttpStatus.UNPROCESSABLE_CONTENT);
         assertThat(result).bodyJson().extractingPath("$.code").asString().isEqualTo("PLAN_NOT_DRAFT_OR_READY");
+        assertThat(result).bodyJson().extractingPath("$.params.plan").asString().isEqualTo(plan);
+        assertThat(recordedOutcomes(traceIdOf(result))).containsExactly("REFUSED PLAN_NOT_DRAFT_OR_READY");
+        assertThat(jobsOf(plan)).isEqualTo(1);
+    }
+
+    /** The lane's sixth job is refused (BR-112), and the refusal changes nothing it would have. */
+    @Test
+    void GivenFiveQueuedDailyJobs_WhenRequestSolve_Then422SolveQueueFull() {
+        String plan = planIdOf(open(dateOf(50)));
+        for (int n = 1; n <= 5; n++) {
+            queueADailyJob(new UUID(QUEUED_KEYS, n));
+        }
+
+        MvcTestResult result = solve(plan, "\"0\"", "{}");
+
+        assertThat(result).hasStatus(HttpStatus.UNPROCESSABLE_CONTENT);
+        assertThat(result).bodyJson().extractingPath("$.code").asString().isEqualTo("SOLVE_QUEUE_FULL");
+        assertThat(result).bodyJson().extractingPath("$.params.lane").asString().isEqualTo("DAILY");
+        assertThat(result)
+                .bodyJson()
+                .extractingPath("$.params.limit")
+                .asNumber()
+                .isEqualTo(5);
+        assertThat(recordedOutcomes(traceIdOf(result))).containsExactly("REFUSED SOLVE_QUEUE_FULL");
+        assertThat(storedPlan(plan)).containsEntry("status", "DRAFT");
+        assertThat(jobsOf(plan)).isZero();
+    }
+
+    /** The limit's own bounds pass both the contract's check and the domain's (FR-19). */
+    @ParameterizedTest
+    @CsvSource({"5, 40", "60, 41"})
+    void GivenALimitOf5Or60_WhenRequestSolve_Then202AndTheJobHasThatLimit(int seconds, int day) {
+        String plan = planIdOf(open(dateOf(day)));
+
+        MvcTestResult result = solve(plan, "\"0\"", "{\"limitSeconds\":" + seconds + "}");
+
+        assertThat(result).hasStatus(HttpStatus.ACCEPTED);
+        assertThat(storedJob(read(result, "$.jobId"))).containsEntry("solve_limit", seconds * 1_000_000_000L);
     }
 
     @Test
     void GivenAnUnknownPlan_WhenRequestSolve_Then404NotFound() {
-        MvcTestResult result = solve(UUID.randomUUID().toString(), "\"0\"", "{}");
+        MvcTestResult result = solve(NO_PLAN, "\"0\"", "{}");
 
         assertThat(result).hasStatus(HttpStatus.NOT_FOUND);
         assertThat(result).bodyJson().extractingPath("$.code").asString().isEqualTo("NOT_FOUND");
@@ -426,6 +467,31 @@ class PlanControllerIT {
                 .param(traceId)
                 .query(String.class)
                 .list();
+    }
+
+    private void endEveryUnfinishedDailyJob() {
+        owner.sql("""
+                UPDATE planning.solve_job
+                SET phase = 'FAILED', failure_reason = 'INTERRUPTED', ended_at = requested_at,
+                    claimed_at = NULL, search_started_at = NULL, version = version + 1
+                WHERE lane = 'DAILY' AND phase IN ('QUEUED', 'BUILDING_MATRIX', 'RUNNING')
+                """).update();
+    }
+
+    /** Plants a queued daily job of no plan of these tests', so the lane fills without a solve. */
+    private void queueADailyJob(UUID job) {
+        owner.sql("""
+                        INSERT INTO planning.solve_job
+                            (id, version, plan_id, lane, solver, solve_limit, seed, requested_at, phase)
+                        VALUES (?, 0, ?, 'DAILY', 'ortools', 45000000000, 7, now(), 'QUEUED')
+                        """).params(job, job).update();
+    }
+
+    private int jobsOf(String plan) {
+        return owner.sql("SELECT count(*) FROM planning.solve_job WHERE plan_id = ?")
+                .param(UUID.fromString(plan))
+                .query(Integer.class)
+                .single();
     }
 
     private static LocalDate dateOf(int n) {

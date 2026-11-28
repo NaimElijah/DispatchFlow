@@ -9,6 +9,10 @@ import com.dispatchflow.shared.ProposalId;
  * without reloading (FR-16, FR-65, FR-222, TS §6.4). Each call says only what changed; the screen
  * then reads it through Planning's queries. A use case calls it after its transaction commits, so a
  * screen never reads a change that rolled back.
+ *
+ * <p>An adapter never throws: by the time it sends, the change is stored, so a failure of its own,
+ * such as a stream that closed, is caught and logged in the adapter (ADR-140 decision 6). Thrown,
+ * it would answer 500 for a change that took, and the client's retry would be refused.
  */
 public interface LiveUpdates {
 

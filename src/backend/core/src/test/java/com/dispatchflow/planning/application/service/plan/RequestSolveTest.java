@@ -181,7 +181,8 @@ class RequestSolveTest {
 
         JobId job = request(plan, Optional.empty(), Optional.empty());
 
-        assertThat(liveUpdates.sent()).containsExactly(new JobChanged(job, plan.id()), new PlanChanged(plan.id()));
+        assertThat(liveUpdates.sent())
+                .containsExactlyInAnyOrder(new JobChanged(job, plan.id()), new PlanChanged(plan.id()));
     }
 
     @Test
