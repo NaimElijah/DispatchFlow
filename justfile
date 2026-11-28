@@ -194,6 +194,7 @@ dev: _dev-env
     @echo "Web app:    http://$({{ dev_stack }} port web 5173)"
     @echo "Core:       http://$({{ dev_stack }} port core 8080)"
     @echo "Optimizer:  http://$({{ dev_stack }} port optimizer 8000)"
+    @echo "Tiles:      http://$({{ dev_stack }} port tiles 8090)"
     @echo "PostgreSQL: $({{ dev_stack }} port postgres 5432)"
     @echo "Watching for edits. Ctrl+C stops the watch only; just dev-down stops the stack."
     {{ dev_stack }} watch --no-up
