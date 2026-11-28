@@ -17,7 +17,7 @@ info:
     is that date and a local `HH:mm`, both ways, which the core resolves in Israel (BR-111). The
     two are kept apart as the database keeps them (ADR-088, ADR-155). A problem's `params` keep the
     forms `Problem.params` names. An optional field with no value is left out, never sent as
-    `null`.
+    `null`; a request may send `null` for an optional field, which reads as leaving it out.
 
     Every answer carries `Cache-Control: no-store, no-transform`: `no-store` so no browser or
     phone keeps an answer in its HTTP cache, since what an app may store is ADR-076's, and
@@ -68,6 +68,8 @@ paths:
                 format: uri-reference
             ETag:
               $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/CacheControl'
           content:
             application/json:
               schema:
@@ -84,7 +86,10 @@ paths:
             |---|---|---|
             | `DATE_IN_PAST` | The date is before today (BR-118). | `date` |
             | `PLAN_ALREADY_EXISTS` | The date has a plan that isn't cancelled (BR-34). | `date`, and `existing`, that plan's ID, so the client opens it instead |
-            | `DATE_OUT_OF_RANGE` | The date's year is outside 1 to 9999. | `date` |
+            | `DATE_OUT_OF_RANGE` | The date's year is outside 1 to 9999: a year `0000`, or one written with ISO 8601's expanded form, such as `+10000-01-01`, which the core reads too. | `date` |
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControl'
           content:
             application/problem+json:
               schema:
@@ -118,7 +123,9 @@ paths:
               $ref: '#/components/schemas/RequestSolveRequest'
       responses:
         '202':
-          description: The solve is queued.
+          description: >-
+            The solve is queued, and the plan is solving: its version moved, so the `ETag` the
+            client holds no longer matches, and the plan is read again before its next change.
           headers:
             Location:
               description: The solve job's path, `/api/v1/solve-jobs/{jobId}`.
@@ -126,6 +133,8 @@ paths:
               schema:
                 type: string
                 format: uri-reference
+            Cache-Control:
+              $ref: '#/components/headers/CacheControl'
           content:
             application/json:
               schema:
@@ -144,9 +153,12 @@ paths:
 
             | Code | Rule | `params` |
             |---|---|---|
-            | `PLAN_NOT_DRAFT_OR_READY` | Only a draft or ready plan is solved, so not one that is solving already, published, completed, cancelled or abandoned (BR-12, BR-60). | `plan` |
+            | `PLAN_NOT_DRAFT_OR_READY` | Only a draft or ready plan is solved, so not one that is solving already, published, completed, cancelled or abandoned (BR-12, BR-60). | `plan`, its ID |
             | `DATE_IN_PAST` | The plan's delivery date is before today (BR-118). | `date` |
             | `SOLVE_QUEUE_FULL` | The lane's queue holds its limit of jobs (BR-112). Try again once a queued solve has started. | `lane` and `limit` |
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControl'
           content:
             application/problem+json:
               schema:
@@ -225,11 +237,23 @@ components:
       schema:
         type: integer
         minimum: 0
+    CacheControl:
+      description: >-
+        Exactly `no-store, no-transform`, on every answer: `no-store` so no browser or phone keeps it
+        in its HTTP cache, and `no-transform` so no proxy rewrites it or its `ETag` (ADR-076,
+        ADR-157).
+      required: true
+      schema:
+        type: string
+        const: no-store, no-transform
   responses:
     InvalidRequest:
       description: >-
         `INVALID_REQUEST`: the request breaks this contract. `errors` names each failing field or
         parameter.
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/CacheControl'
       content:
         application/problem+json:
           schema:
@@ -238,6 +262,8 @@ components:
       description: >-
         `ACCESS_TOKEN_REFUSED`: the call has no signed-in caller. `params` is empty.
       headers:
+        Cache-Control:
+          $ref: '#/components/headers/CacheControl'
         WWW-Authenticate:
           description: Exactly `Bearer`.
           required: true
@@ -250,7 +276,11 @@ components:
             $ref: '#/components/schemas/Problem'
     NotFound:
       description: >-
-        `NOT_FOUND`: no record has the ID in the path. `params` has its `kind` and `id`.
+        `NOT_FOUND`: no record has the ID in the path. `params` has its `kind`, the record's type
+        as the operation names it, such as `Plan`, and its `id`.
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/CacheControl'
       content:
         application/problem+json:
           schema:
@@ -258,7 +288,11 @@ components:
     StaleVersion:
       description: >-
         `STALE_VERSION`: `If-Match` isn't the record's current version, because the record changed
-        since it was read. `params` has `kind` and `id`. Not retried: read the record again.
+        since it was read. `params` has `kind`, the record's type, such as `Plan`, and `id`. Not
+        retried: read the record again.
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/CacheControl'
       content:
         application/problem+json:
           schema:
@@ -268,6 +302,8 @@ components:
         `TRY_AGAIN_LATER`: the call lost a race for a record, or waited too long for a lock, on
         every try.
       headers:
+        Cache-Control:
+          $ref: '#/components/headers/CacheControl'
         Retry-After:
           $ref: '#/components/headers/RetryAfter'
       content:
@@ -279,6 +315,8 @@ components:
         An error any operation can answer, with one of the codes `Problem` lists. The body never
         says what went wrong inside the server.
       headers:
+        Cache-Control:
+          $ref: '#/components/headers/CacheControl'
         Retry-After:
           description: On a 503, the seconds to wait before trying again.
           schema:
