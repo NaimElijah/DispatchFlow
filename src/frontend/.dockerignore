@@ -3,6 +3,8 @@
 **/node_modules
 **/dist
 **/*.tsbuildinfo
+# The client's generated types: the dev server needs none of them (ADR-161).
+packages/api-client/src/generated/
 # The phone app stays outside the pnpm workspace (ADR-039) and out of the web image.
 mobile/
 .env*

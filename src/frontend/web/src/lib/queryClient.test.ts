@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest'
-import { RequestError, type Problem } from './problems.ts'
+import type { Problem } from '@dispatchflow/api-client'
+import { RequestError } from './problems.ts'
 import { createQueryClient } from './queryClient.ts'
 
 const coreFailure: Problem = {

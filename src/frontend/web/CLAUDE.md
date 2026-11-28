@@ -53,12 +53,12 @@ React 19, TypeScript 6.0, Vite 8, pnpm; TanStack Router and Query, Mantine 9, i1
   marked unavailable, and 1 hour after shift end on a route nobody finished (NFR-30, FR-328). It learns of route
   changes from its event stream (FR-347, [ADR-026]), and takes proof photos with the camera, never
   from files (NFR-204).
-- A call fetches with `lib/coreCalls.ts`'s `fetchFromCore` and reads its answer with `answerOf`
-  (ADR-154). The event stream reads with plain `fetch` and eventsource-parser: `EventSource` cannot
-  send an `Authorization` header ([TS §10]).
+- A call goes through `lib/coreClient.ts`'s `coreClient` and reads its answer with `answerOf`
+  (ADR-154, ADR-161). ESLint refuses every other way to the server, `fetchFromCore` included
+  (`src/test/fetchGlobal.test.ts`). The event stream reads with plain `fetch` and
+  eventsource-parser: `EventSource` cannot send an `Authorization` header ([TS §10]).
 - Build forms on `@dispatchflow/schemas`, refusals and row lists from `src/components/` ([ADR-153]).
   ESLint keeps Day.js in `DatesLanguage.tsx` and takes Zod from `@dispatchflow/schemas` only.
-  `lib/problems.ts` types `Problem` by hand until #148.
 - Server data lives only in TanStack Query's in-memory cache, never persisted, and a refused refresh
   or an ended session drops it (NFR-269). Sign-out's answer sends `Clear-Site-Data` and deletes the
   refresh cookie, which is HttpOnly, so the app never reads it (NFR-233, [ADR-076]).
@@ -73,20 +73,20 @@ React 19, TypeScript 6.0, Vite 8, pnpm; TanStack Router and Query, Mantine 9, i1
   test that sent it fails, one sent on unmount included (`endTest` in `server.ts`, called by
   `setup.ts`). Happy paths go in `handlers.ts`; a test overrides an answer with `server.use()`,
   and nothing else calls `setupServer`. Import `http` and `HttpResponse` from `msw/http`.
-- Vitest globals are off: import every Vitest API you use (`test`, `expect`, `vi`, …) from
-  `vitest`, as `App.test.tsx` does.
+- A lint test at a path no file has lints through `src/test/lintAs.ts`: typed ESLint can't read it.
+- Vitest globals are off: import every Vitest API you use from `vitest`, as `App.test.tsx` does.
 
 ## Commands
 
 Run `just` recipes from the repository root, and `pnpm` from this folder.
 
-| Command                                 | What it does                                                    |
-| --------------------------------------- | --------------------------------------------------------------- |
-| `just web-check`                        | ESLint, Prettier check, Vitest, then `tsc -b` and `vite build`  |
-| `just web-format`                       | Prettier                                                        |
-| `just web-run`                          | Vite dev server, which sends no Content Security Policy         |
-| `pnpm run build && pnpm run preview`    | The production build, served under ADR-069's policy, on `:4173` |
-| `pnpm exec vitest run src/App.test.tsx` | One test file                                                   |
+| Command                                 | What it does                                                                       |
+| --------------------------------------- | ---------------------------------------------------------------------------------- |
+| `just web-check`                        | The client's types, then ESLint, Prettier check, Vitest, `tsc -b` and `vite build` |
+| `just web-format`                       | Prettier                                                                           |
+| `just web-run`                          | Vite dev server, which sends no Content Security Policy                            |
+| `pnpm run build && pnpm run preview`    | The production build, served under ADR-069's policy, on `:4173`                    |
+| `pnpm exec vitest run src/App.test.tsx` | One test file                                                                      |
 
 `web-check` and `web-format` run each script in this app and in every shared package that has it,
 and fail on a package without the two `src/frontend/CLAUDE.md` requires of every package.

@@ -62,6 +62,40 @@ export const typescript = defineConfig({
   extends: [js.configs.recommended, tseslint.configs.recommended],
 })
 
+/**
+ * The rules that read the types, over every `.ts` and `.tsx` file of the package or app whose
+ * folder is given: typescript-eslint's project service gives each file its own tsconfig's types.
+ * A configuration before it must parse those files with typescript-eslint's parser: `typescript`
+ * parses only `.ts` files, so a package with `.tsx` files puts `reactVite` first.
+ *
+ * `switch-exhaustiveness-check` fails a `switch` over a union that misses one of its members, a
+ * `default` included, so a generated union's new `kind` can't fall through unseen (ADR-155, Risk;
+ * ADR-161).
+ *
+ * @param {string} tsconfigRootDir the folder of the package's own `eslint.config.js`, its
+ *     `import.meta.dirname`
+ * @param {string[]} [outsideEveryTsconfig] the `.ts` files that no tsconfig of the package
+ *     includes, such as a `vitest.config.ts`, which are read with TypeScript's defaults. A file a
+ *     tsconfig includes is never listed: typescript-eslint refuses one that is in both.
+ */
+export function typeChecked(tsconfigRootDir, outsideEveryTsconfig = []) {
+  return defineConfig({
+    files: ['**/*.{ts,tsx}'],
+    languageOptions: {
+      parserOptions: {
+        projectService: { allowDefaultProject: outsideEveryTsconfig },
+        tsconfigRootDir,
+      },
+    },
+    rules: {
+      '@typescript-eslint/switch-exhaustiveness-check': [
+        'error',
+        { considerDefaultExhaustiveForUnions: false, requireDefaultForNonUnion: false },
+      ],
+    },
+  })
+}
+
 /** ESLint's recommended rules over every `.js` file that Node runs, with Node's globals. */
 export const node = defineConfig({
   files: ['**/*.js'],

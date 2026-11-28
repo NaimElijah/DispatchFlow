@@ -1,4 +1,4 @@
-import { typescript } from '@dispatchflow/eslint-config'
+import { typeChecked, typescript } from '@dispatchflow/eslint-config'
 import { defineConfig } from 'eslint/config'
 
 const ZOD_MESSAGE =
@@ -6,6 +6,7 @@ const ZOD_MESSAGE =
 
 export default defineConfig([
   typescript,
+  typeChecked(import.meta.dirname),
   {
     files: ['**/*.ts'],
     ignores: ['src/zod.ts'],

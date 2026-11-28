@@ -225,9 +225,9 @@ progress to the web app over server-sent events
 | Core backend | Java, Spring Boot, Spring Data JPA; libphonenumber, JTS, JSpecify; uuid-creator | 25, 4.1.2; 9.0.43, 1.20.0, version from the Spring Boot parent; 6.1.1 | The team's strongest stack; mature ecosystem for the adapters. libphonenumber parses phone numbers and JTS checks the service area, both in the pure domain; JSpecify marks null-safe packages; uuid-creator makes the UUIDv7 IDs, which the JDK can't |
 | Database | PostgreSQL 18.7; Flyway (version from the Spring Boot parent) | 18.7 | Relational data with real constraints; versioned SQL migrations |
 | Optimizer | Python, FastAPI, NumPy | 3.14, 0.162, 2.5.4 | OR-Tools' richest bindings; algorithm work iterates apart from the backend; NumPy holds the validator's arrays |
-| Web app | React, TypeScript, Vite; TanStack Router, Query and Table, Mantine, i18next; React Hook Form, Zod, libphonenumber-js | 19.3, 6.0, 8.3; 1.170, 5.108, 9.3, 9.8, 27.2; 7.92, 4.6, 1.13 | Web app for every role; its driver screens also work in a phone's browser. Typed routes, an in-memory server cache, right to left through one provider, one strings package for both apps, and forms whose schemas both apps share |
+| Web app | React, TypeScript, Vite; TanStack Router, Query and Table, Mantine, i18next; React Hook Form, Zod, libphonenumber-js; openapi-fetch | 19.3, 6.0, 8.3; 1.170, 5.108, 9.3, 9.8, 27.2; 7.92, 4.6, 1.13; 0.17 | Web app for every role; its driver screens also work in a phone's browser. Typed routes, an in-memory server cache, right to left through one provider, one strings package for both apps, and forms whose schemas both apps share |
 | Phone app | React Native, Expo | 0.88, SDK 58 | One codebase for iOS and Android, for every role |
-| Contracts | OpenAPI, Redocly CLI | 3.1, 2.72 | Each side is built against the contract, not against the other side |
+| Contracts | OpenAPI, Redocly CLI; openapi-generator (core), openapi-typescript (apps) | 3.1, 2.72; 7.27, 7.13 | Each side is built against the contract, not against the other side |
 | Tests | JUnit + Testcontainers, ArchUnit, pytest + Hypothesis, vrplib, import-linter, Vitest, MSW, user-event, Jest | ArchUnit 1.5.1, Hypothesis 6.170, vrplib 2.2.0, import-linter 2.16, MSW 3.0, user-event 14.6 | Real PostgreSQL in tests, never an in-memory stand-in; ArchUnit, import-linter and ruff keep each domain pure; vrplib reads the Solomon instances the validator is checked against |
 | Tooling | just, uv, pnpm (web app), npm (phone app), OSV-Scanner | 1.59, 0.12, 12.23, 11, 2.7 | One command set locally and in CI; one audit across every ecosystem |
 
@@ -301,8 +301,10 @@ recipe; `just check` and `just format` run them all. The `web` recipes run from 
 workspace in `src/frontend`, so they also set up and check the shared packages. `just infra-check`
 and `just infra-format` cover the development stack in `infra/deploy`, which `just dev`,
 `just dev-down` and `just db-reset` run, and whose map files `just data` builds. `just gen`
-regenerates the code built from the contracts, today the core's interfaces and models, which every
-core build writes into `src/backend/core/target/generated-sources/openapi` too and never commits.
+regenerates the code built from the contracts, which is never committed: the core's interfaces and
+models, which every core build writes into `src/backend/core/target/generated-sources/openapi` too,
+and the apps' client types, which `just web-setup` and `just web-check` write into
+`src/frontend/packages/api-client/src/generated` too.
 
 **Adding a feature end to end:** start from the requirement it delivers in
 [requirements.md](docs/requirements/requirements.md), the aggregate that owns its rule in the
@@ -347,7 +349,7 @@ src/
   backend/optimizer/   optimization service (FastAPI)
   frontend/web/        web app (React + Vite)
   frontend/mobile/     phone app (Expo)
-  frontend/packages/   shared TypeScript packages: eslint-config, tsconfig, i18n, formatters and schemas, and two placeholders
+  frontend/packages/   shared TypeScript packages: eslint-config, tsconfig, i18n, formatters, schemas and api-client, and one placeholder
   research/            benchmarks, simulation, order generator; never deployed
 contracts/             versioned OpenAPI contracts between the components
 tests/                 cross-component tests only: e2e/, load/

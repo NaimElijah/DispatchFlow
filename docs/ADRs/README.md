@@ -51,12 +51,13 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | [ADR-148](ADR-148-the-stand-in-serves-only-its-own-origin-every-unsigned-api-call-answers-401-and-the-guard-outlives-the-session.md) | The stand-in serves only its own origin, every unsigned call under `/api/v1` answers 401, and the guard outlives the session | Accepted; extended by ADR-160 |
 | [ADR-149](ADR-149-the-use-case-records-its-refusal-after-the-rollback-and-the-audit-purge-counts-its-year-back-from-now.md) | The use case records its refusal after the rollback, and the audit purge counts its year back from now | Accepted; extended and amended by ADR-150 |
 | [ADR-150](ADR-150-one-audit-helper-records-the-refusals-a-use-case-sees-and-the-contracts-handler-records-a-changing-call-it-refuses.md) | One Audit helper records the refusals a use case sees, and the contract's handler records a changing call it refuses | Accepted |
-| [ADR-043](ADR-043-generated-code-from-both-contracts-and-problem-details-errors.md) | Code is generated from both contracts on both sides, and errors are RFC 9457 Problem Details | Accepted; extended by ADR-068, ADR-073, ADR-087, ADR-094 and ADR-140; amended by ADR-123, ADR-153 and ADR-160 |
+| [ADR-043](ADR-043-generated-code-from-both-contracts-and-problem-details-errors.md) | Code is generated from both contracts on both sides, and errors are RFC 9457 Problem Details | Accepted; extended by ADR-068, ADR-073, ADR-087, ADR-094, ADR-140 and ADR-161; amended by ADR-123, ADR-153 and ADR-160 |
 | [ADR-094](ADR-094-each-pull-requests-contract-check-compares-against-its-base-branch.md) | Each pull request's contract check compares against its base branch | Accepted |
-| [ADR-155](ADR-155-the-client-api-keeps-instants-and-local-times-apart-and-sends-a-list-that-may-grow-as-a-string.md) | The client API keeps instants and local times apart, and sends a list that may grow as a string | Accepted |
+| [ADR-155](ADR-155-the-client-api-keeps-instants-and-local-times-apart-and-sends-a-list-that-may-grow-as-a-string.md) | The client API keeps instants and local times apart, and sends a list that may grow as a string | Accepted; extended by ADR-161 |
 | [ADR-157](ADR-157-an-if-match-is-exactly-one-strong-tag-the-core-sent-and-the-proxy-leaves-the-apis-tags-alone.md) | An `If-Match` is exactly one strong tag the core sent, and the proxy leaves the API's tags alone | Accepted |
 | [ADR-159](ADR-159-a-contract-change-goes-with-its-provider-and-the-consumers-that-call-what-it-changes.md) | A contract change goes with its provider and the consumers that call what it changes | Accepted |
 | [ADR-160](ADR-160-the-cores-generated-interfaces-take-a-dto-suffix-leave-absent-fields-out-and-are-served-under-a-literal-api-v1-prefix.md) | The core's generated interfaces take a `Dto` suffix, leave absent fields out, and are served under a literal `/api/v1` prefix | Accepted |
+| [ADR-161](ADR-161-the-apps-client-is-generated-before-every-check-never-committed-from-the-frozen-pair-pinned.md) | The apps' client is generated before every check and never committed, from openapi-typescript and openapi-fetch pinned after their freeze | Accepted |
 | [ADR-044](ADR-044-solver-port-takes-start-budget-and-seed-and-problem-judges.md) | The solver port takes a start, a budget and a seed, and `Problem` alone judges a solution | Accepted; extended by ADR-050 and ADR-099; amended by ADR-105, ADR-120 and ADR-121 |
 | [ADR-045](ADR-045-generation-counters-revoke-tokens.md) | Generation counters on the user and the session revoke tokens | Accepted; extended by ADR-131; amended by ADR-104 |
 | [ADR-048](ADR-048-travel-times-from-buckets-and-a-buffer-with-no-live-traffic.md) | Travel times come from time-of-day buckets and a buffer, with no live traffic | Accepted; amended by ADR-098 |
@@ -105,9 +106,9 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | [ADR-088](ADR-088-israel-local-time-for-every-date-and-schedule.md) | Every date, time window, shift and schedule is Israel local time, held as elapsed seconds in a solve | Accepted; extended by ADR-155; amended by ADR-098 |
 | [ADR-089](ADR-089-interface-languages.md) | Both apps are available in Hebrew, right to left, and in English only | Accepted; extended by ADR-143 |
 | [ADR-143](ADR-143-the-web-app-shell-declares-routes-per-area-opens-in-english-and-renders-no-style-element.md) | The web app's shell declares routes per area, opens in English, and renders no `<style>` element | Accepted; extended by ADR-153; amended by ADR-144 |
-| [ADR-144](ADR-144-the-web-apps-features-stay-apart-and-its-lower-folders-never-import-upward.md) | The web app's features stay apart, its lower folders never import upward, and sign-in stands beside the shell | Accepted; extended by ADR-153 |
-| [ADR-153](ADR-153-the-web-apps-shared-form-refusal-and-table-pieces.md) | The web app builds every form, refusal and row list from one set of shared pieces, and its schemas name codes, never messages | Accepted; amended by ADR-154 |
-| [ADR-154](ADR-154-the-audit-of-the-shared-web-pieces-amends-how-a-call-fails-a-notice-closes-and-a-range-reads.md) | The audit of the web app's shared pieces amends how a call fails, how a saved notice closes and how a time range reads | Accepted |
+| [ADR-144](ADR-144-the-web-apps-features-stay-apart-and-its-lower-folders-never-import-upward.md) | The web app's features stay apart, its lower folders never import upward, and sign-in stands beside the shell | Accepted; extended by ADR-153 and ADR-161 |
+| [ADR-153](ADR-153-the-web-apps-shared-form-refusal-and-table-pieces.md) | The web app builds every form, refusal and row list from one set of shared pieces, and its schemas name codes, never messages | Accepted; amended by ADR-154 and ADR-161 |
+| [ADR-154](ADR-154-the-audit-of-the-shared-web-pieces-amends-how-a-call-fails-a-notice-closes-and-a-range-reads.md) | The audit of the web app's shared pieces amends how a call fails, how a saved notice closes and how a time range reads | Accepted; amended by ADR-161 |
 | [ADR-090](ADR-090-scope-cuts-for-the-first-release.md) | The first release cuts ten capabilities, and each has its own trigger to reopen | Accepted |
 | [ADR-091](ADR-091-study-design-for-the-solver-comparison.md) | The solver comparison follows eleven fixed design choices, and a mutation run checks the validator first | Accepted |
 | [ADR-092](ADR-092-the-alns-package-runs-our-solvers-outer-loop.md) | The `alns` package runs our solver's outer loop, and the rest of the solver stays ours | Accepted |
@@ -129,7 +130,7 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 | [ADR-037](ADR-037-flat-layout-under-src-with-deploy-and-infra.md) | The code moves to a flat layout under `src/`, with deployment in `deploy/` and Terraform in `infra/` | Superseded by ADR-123 |
 | [ADR-123](ADR-123-the-code-keeps-its-grouped-layout-and-three-components-take-new-names.md) | The code keeps its grouped layout, and three components take new names | Accepted; extended by ADR-130 |
 | [ADR-038](ADR-038-mise-pins-every-toolchain-and-core-moves-to-java-25.md) | mise pins every toolchain, and the core moves to Java 25 | Accepted |
-| [ADR-039](ADR-039-one-pnpm-workspace-for-both-apps-and-shared-packages.md) | Both apps and the shared TypeScript packages live in one pnpm workspace | Accepted; extended by ADR-130, ADR-141 and ADR-143; amended by ADR-123 |
+| [ADR-039](ADR-039-one-pnpm-workspace-for-both-apps-and-shared-packages.md) | Both apps and the shared TypeScript packages live in one pnpm workspace | Accepted; extended by ADR-130, ADR-141, ADR-143 and ADR-161; amended by ADR-123 |
 | [ADR-141](ADR-141-prettiers-settings-live-in-one-file-in-src-frontend.md) | Prettier's settings live in one file in `src/frontend`, for the web app and every workspace package | Accepted |
 | [ADR-042](ADR-042-compose-dev-for-local-runs-testcontainers-for-tests.md) | Local runs start their services from `compose.dev.yaml`; tests keep Testcontainers | Accepted; amended by ADR-123, ADR-139 and ADR-151 |
 | [ADR-151](ADR-151-the-dev-stack-runs-the-core-as-a-compose-service-and-the-core-checks-its-database-session.md) | The dev stack runs the core as a Compose service, and the core checks its database session at startup | Accepted; amended by ADR-152 and ADR-156 |
@@ -373,4 +374,15 @@ course, add a new ADR and mark the old one `Superseded by ADR-NNN`. How to write
 > `/api`, extending ADR-148; a request value only the domain can refuse reaches the use case plain
 > and is built inside its recorded attempt; the generator stays at 7.27.0; and `just audit` doesn't
 > scan build plugins.
+>
+> ADR-161, on 2026-11-28, settles ADR-043's open point for the apps, extends ADR-039, ADR-144 and
+> ADR-155, and amends ADR-154: `@dispatchflow/api-client` is generated at `just web-setup` and before every check,
+> never committed; openapi-typescript 7.13.0 and openapi-fetch 0.17.0 stay, pinned exactly behind
+> the package's `createCoreClient`, although their maintainer froze both on 19 September 2026; the
+> client names the app and its release on every call and accepts both media types; the problem
+> types are generated, and the patterns they can't carry live beside them, pinned to the contract,
+> which ends ADR-153's hand-written `Problem`; `fetchFromCore` also fails a success in a media
+> type the call didn't accept; only the package talks to the server, and only types come from the
+> generated file, so the dev image generates nothing; and ESLint reads the types, refusing a
+> `switch` that misses a member of its union.
 > The tech stack's [§22](../architecture/tech_stack.md#22-open-decisions) lists what is still open.

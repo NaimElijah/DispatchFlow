@@ -67,3 +67,25 @@ test('GivenACustomCheckThatNamesNoKnownCode_WhenRefused_ThenTheMapFailsLoudly', 
 
   expect(() => result.error?.issues).toThrow(/MADE_UP/)
 })
+
+/** An issue as Zod hands it to an error map, with only the fields a format check's refusal reads. */
+function issueOf(code: string): z.core.$ZodRawIssue {
+  return { code, input: 'x', path: [], message: '' } as unknown as z.core.$ZodRawIssue
+}
+
+test('GivenEachOfZodsOtherChecks_WhenRead_ThenItIsAWrongFormat', () => {
+  for (const code of [
+    'invalid_format',
+    'invalid_element',
+    'invalid_key',
+    'invalid_union',
+    'not_multiple_of',
+    'unrecognized_keys',
+  ]) {
+    expect(refusalOf(issueOf(code)), code).toEqual({ code: 'WRONG_FORMAT', params: {} })
+  }
+})
+
+test('GivenACodeZodsTypesDoNotName_WhenRead_ThenItIsAWrongFormat', () => {
+  expect(refusalOf(issueOf('a_check_of_a_later_zod'))).toEqual({ code: 'WRONG_FORMAT', params: {} })
+})

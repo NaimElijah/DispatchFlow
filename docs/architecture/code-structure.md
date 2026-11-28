@@ -39,7 +39,7 @@ and ADR-014 are superseded; ADR-009, ADR-013 and ADR-015 are amended.
 | `src/frontend/` | The pnpm workspace's root, over `web/` and `packages/*` ([ADR-039](../ADRs/ADR-039-one-pnpm-workspace-for-both-apps-and-shared-packages.md)): `package.json`, `pnpm-workspace.yaml` and its one lockfile, `pnpm-lock.yaml`; `.prettierrc.json`, Prettier's one file for the web app and the packages ([ADR-141](../ADRs/ADR-141-prettiers-settings-live-in-one-file-in-src-frontend.md)); and `.dockerignore`, for the web app's dev image |
 | `src/frontend/web/` | The web app, for every role: React, TypeScript, Vite, pnpm |
 | `src/frontend/mobile/` | The phone app, for every role: React Native, Expo SDK 58, TypeScript |
-| `src/frontend/packages/` | The shared TypeScript packages ([ADR-039](../ADRs/ADR-039-one-pnpm-workspace-for-both-apps-and-shared-packages.md)): `eslint-config`, `tsconfig`, `i18n`, `formatters` and `schemas` are workspace packages, and two placeholder folders have no `package.json` yet |
+| `src/frontend/packages/` | The shared TypeScript packages ([ADR-039](../ADRs/ADR-039-one-pnpm-workspace-for-both-apps-and-shared-packages.md)): `eslint-config`, `tsconfig`, `i18n`, `formatters`, `schemas` and `api-client` are workspace packages, and one placeholder folder, `map-style`, has no `package.json` yet |
 | `src/research/` | Benchmarks, simulation and the order generator: Python, uv. Never deployed |
 | `contracts/` | `client-api/v1` and `optimization-api/v1` (OpenAPI), and the Redocly lint setup |
 | `tests/` | Tests that span components: `e2e/` and `load/`. Both are placeholders |
@@ -495,7 +495,8 @@ A Vite project in the pnpm workspace ([ADR-143](../ADRs/ADR-143-the-web-app-shel
 ```text
 src/frontend/web/
   index.html             <html lang="en" dir="ltr">, until DocumentLanguage sets the chosen language
-  vite.config.ts         Vite and Vitest; ADR-069's policy on `vite preview`; the /api/ proxy
+  vite.config.ts         Vite and Vitest; ADR-069's policy on `vite preview`; the /api/ proxy;
+                         __APP_VERSION__, from package.json
   Dockerfile.dev         the dev server's image for compose.dev.yaml, built from src/frontend
   src/
     main.tsx             reads the language setting, then builds i18next, the query cache and the router
@@ -508,6 +509,7 @@ src/frontend/web/
     routeTree.ts         gathers every area's routes under the shell's layout route
     i18n.ts              createI18n, over @dispatchflow/i18n
     i18next.d.ts         types t() keys against the strings
+    appVersion.d.ts      types __APP_VERSION__, the release every call names
     DocumentLanguage.tsx keeps <html lang> and the direction in step with the language
     styles/theme.css     what Mantine would inject as <style>: the font and the hiddenFrom rules
     routes/              the shell: the root route, shellRoute and its layout, /, the not-found
@@ -520,10 +522,12 @@ src/frontend/web/
                          map/, the map's (#174, empty until then)
     lib/                 the code no layer owns: the language setting, the refusal reader
                          (problems.ts), the refusal texts (problemText.ts), the one fetch and
-                         answer reader of every call (coreCalls.ts), the one query cache
+                         answer reader of every call (coreCalls.ts), the one client of the core
+                         (coreClient.ts), the one query cache
                          (queryClient.ts) and the versioned save (versionedSave.ts)
     test/                Vitest's setup, renderApp, renderComponent, the one MSW server, the <style>
-                         check, the tests of the lint rules, and the example form
+                         check, the tests of the lint rules and the linter they share (lintAs.ts),
+                         and the example form
 ```
 
 Imports point one way, from `src/` itself to `features/`, `routes/`, `components/` and `lib/`:
@@ -554,22 +558,25 @@ deepmerge entries in
 are. It has no route folder:
 that comes with `expo-router` at M10 ([ADR-130][ADR-130]).
 
-The two apps share no code. `src/frontend/packages/` holds seven folders. Five are workspace
+The two apps share no code. `src/frontend/packages/` holds seven folders. Six are workspace
 packages that only the web app uses so far: `eslint-config` (`@dispatchflow/eslint-config`, the
 ESLint 10 flat configs), `tsconfig` (`@dispatchflow/tsconfig`, the `base`, `app` and `node`
 presets), `i18n` (`@dispatchflow/i18n`, the English and Hebrew strings as TypeScript, one
 namespace per area in `src/en/` and `src/he/`, with `common` for the shared components and
 `problems` for every refusal's text and next step), `formatters` (`@dispatchflow/formatters`,
 dates, times and quantities as Israel reads them) and `schemas` (`@dispatchflow/schemas`, the
-building blocks of every form's Zod schema) ([ADR-153](../ADRs/ADR-153-the-web-apps-shared-form-refusal-and-table-pieces.md)). Each ships its source, which the app
-compiles, and its `build` script is its type check. The other two, `api-client` and `map-style`, are
-placeholders: a folder is not a package until the ticket that first puts code in it adds its
+building blocks of every form's Zod schema) ([ADR-153](../ADRs/ADR-153-the-web-apps-shared-form-refusal-and-table-pieces.md)) and `api-client`
+(`@dispatchflow/api-client`, the client of the core: `createCoreClient`, the problem types and the
+patterns they can't carry, over the types generated into its git-ignored `src/generated/`,
+[ADR-161](../ADRs/ADR-161-the-apps-client-is-generated-before-every-check-never-committed-from-the-frozen-pair-pinned.md)). Each ships its source, which the app compiles, and its `build` script is its type check;
+`api-client` generates its types before lint and test. The other one, `map-style`, is a
+placeholder: a folder is not a package until the ticket that first puts code in it adds its
 `package.json` ([ADR-039](../ADRs/ADR-039-one-pnpm-workspace-for-both-apps-and-shared-packages.md),
-[ADR-130][ADR-130]). `contracts/client-api/v1` declares two operations, and `core` generates its interfaces from them,
-but the web app's generator is not set up yet (#148), so neither app has an API client.
+[ADR-130][ADR-130]). `contracts/client-api/v1` declares two operations: `core` generates its
+interfaces from them and the web app its client, and the phone app has none yet.
 [ADR-043](../ADRs/ADR-043-generated-code-from-both-contracts-and-problem-details-errors.md)
-(Accepted) generates code from the contracts on both sides: `core`'s is in the tree, the
-consumers' and the optimizer's are not yet.
+(Accepted) generates code from the contracts on both sides: `core`'s and the web app's are built
+from the tree, never committed, and the optimizer's is not yet.
 
 ## Where the tests live
 
@@ -594,8 +601,9 @@ yet.
 
 `just <component>-check` runs a component's tests with its format and lint checks, and
 `just check` runs every component's, plus the contract lint and the dependency audit.
-`just gen` generates the code built from the contracts, which is never committed: today the core's
-interfaces and models, which every core build writes too. See the [`justfile`](../../justfile).
+`just gen` generates the code built from the contracts, which is never committed: the core's
+interfaces and models, which every core build writes too, and the apps' client types, which
+`just web-setup` and `just web-check` write too. See the [`justfile`](../../justfile).
 
 ## Dependency rules
 
@@ -610,9 +618,10 @@ These follow from
 - **In `optimizer`, every solver implements the one `Solver` port** and is chosen by name. The
   registry has no default, and a name it does not hold is rejected.
 - **PyVRP is never a dependency of `optimizer`.** Only `src/research` installs it.
-- **The frontends talk only to `core`.** The API client is generated and never edited.
+- **The frontends talk only to `core`,** through `@dispatchflow/api-client`. Its types in
+  `src/generated/` are generated and never edited or committed.
 
-Three sets of rules are checked automatically today:
+Four sets of rules are checked automatically today:
 - the PyVRP rule;
 - in `core`, the domain's purity rules, the shape rules, the package rules, the application
   rules, the JPA mapping rules and the transaction rules;
@@ -625,7 +634,10 @@ Three sets of rules are checked automatically today:
   domain, ruff's `TID251` also bans `numpy.random`, `datetime64`, `timedelta64`, `numpy.load`,
   `fromfile`, `loadtxt` and `importlib.import_module`, and `PTH123`, `T20`, `S102` and `S307` ban
   `open()`, `print()`, `exec()` and `eval()`
-  ([ADR-113](../ADRs/ADR-113-route-stability-is-its-own-cost-the-rules-read-a-problem-through-a-protocol-and-untimed-outputs-are-documented.md)).
+  ([ADR-113](../ADRs/ADR-113-route-stability-is-its-own-cost-the-rules-read-a-problem-through-a-protocol-and-untimed-outputs-are-documented.md));
+- in the web app and its packages, the ESLint rules that [architecture.md](architecture.md) lists
+  with the tests that pin them: the folders' import direction, the one way to the server, the
+  types-only use of the generated file and the exhaustive `switch`.
 
 The purity rules are ArchUnit tests in `src/test/java/com/dispatchflow/architecture/`, over
 `shared` and every module's `domain` and `events` packages

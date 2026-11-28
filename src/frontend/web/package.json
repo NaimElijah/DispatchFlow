@@ -13,6 +13,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@dispatchflow/api-client": "workspace:*",
     "@dispatchflow/formatters": "workspace:*",
     "@dispatchflow/i18n": "workspace:*",
     "@dispatchflow/schemas": "workspace:*",

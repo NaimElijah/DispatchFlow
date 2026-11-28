@@ -1,17 +1,11 @@
-import { ESLint } from 'eslint'
 import { expect, test } from 'vitest'
-
-// The project's own eslint.config.js, read from the web app's folder, where Vitest runs.
-const eslint = new ESLint()
+import { LINT_TIMEOUT, lintAs } from './lintAs.ts'
 
 /** Lints a snippet as if it sat in a feature's page, and says whether it was refused as HTML. */
 async function isRefusedAsHtml(code: string, filePath = 'src/features/fleet/Probe.tsx') {
-  const [result] = await eslint.lintText(code, { filePath })
-  return result.messages.some((message) => message.ruleId === 'no-restricted-syntax')
+  const messages = await lintAs(code, filePath)
+  return messages.some((message) => message.ruleId === 'no-restricted-syntax')
 }
-
-// Loading the configuration and its plugins takes a few seconds the first time.
-const LINT_TIMEOUT = 30_000
 
 test.each([
   [

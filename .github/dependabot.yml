@@ -61,6 +61,9 @@ updates:
     groups:
       minor-and-patch:
         update-types: [minor, patch]
+        # Frozen upstream, so a release of these is unexpected: it comes as a pull request of its
+        # own, for a look, never inside the weekly group (ADR-161).
+        exclude-patterns: [openapi-typescript, openapi-fetch, openapi-typescript-helpers]
     # TypeScript stays on 6 until typescript-eslint supports 7 (ADR-039), and @types/node follows
     # the Node line in .nvmrc (ADR-038). See ADR-021.
     ignore:

@@ -14,13 +14,14 @@ How DispatchFlow is built, as it is today. What it must do is in
 > `web`'s trace-ID filter, error handlers, call wrapper and error endpoint, the JSON logs and
 > `SchedulingConfiguration`. The web app's shell is built: its routes, layout, languages and
 > Settings page; no screen of it calls the API. Its shared form, refusal and table pieces are built
-> too, but no screen uses them yet. The application layers are declared, not built, but for Audit's
-> `AuditLogService`, wired to record a changing call's refused 401, a lost race and a request that
-> breaks the contract, and every changing use case's outcome as each is built, Audit's static
-> `Refusals` helper, and Planning's `OpenPlan` and `RequestSolve`, each with its `Change`: every
-> other body that would do work throws, and `core` serves two operations of the client API,
-> `openPlan` and `requestSolve`, which no screen calls yet. The design the team is heading for is
-> in [Target design](#target-design); this file describes none of it as built beyond that.
+> too, and its client of the core, generated from the contract, but no screen uses them yet. The
+> application layers are declared, not built, but for Audit's `AuditLogService`, wired to record a
+> changing call's refused 401, a lost race and a request that breaks the contract, and every
+> changing use case's outcome as each is built, Audit's static `Refusals` helper, and Planning's
+> `OpenPlan` and `RequestSolve`, each with its `Change`: every other body that would do work throws,
+> and `core` serves two operations of the client API, `openPlan` and `requestSolve`, which no screen
+> calls yet. The design the team is heading for is in [Target design](#target-design); this file
+> describes none of it as built beyond that.
 
 ## Architecture overview
 
@@ -49,7 +50,7 @@ today.
 |---|---|---|
 | `core` (`src/backend/core`) | Spring Boot 4.1.2, Java 25 | Run as `migrate`, applies the Flyway migrations as `dispatchflow_owner` and exits. Otherwise starts, connects to PostgreSQL as `app`, which owns no table, answers `GET /actuator/health`, serves the client API's `openPlan` and `requestSolve` under `/api/v1`, starts only when the active profiles are exactly `dev` or exactly `test` until #193's event-stream adapter replaces `LiveUpdatesStandIn` (under any other profile it refuses to start, [ADR-140](../ADRs/ADR-140-the-app-wide-web-package-sits-above-the-modules.md), decision 10), answers every error that reaches Spring MVC's exception handlers or Tomcat's error dispatch as the client API's `Problem` with a `code` and the request's trace ID, re-runs a call that lost a race, refuses to start on a database session that could pass its grants or on a server whose messages could be translated, `lc_messages` other than `C` or `POSIX` (`DatabaseSessionGuard`), and stores every module's aggregates through its persistence adapters |
 | `optimizer` (`src/backend/optimizer`) | FastAPI, Python 3.14, NumPy | Answers `GET /health/liveness` with `{"status":"UP"}`, and holds the domain for daily solves and re-optimizations (the validator, the objective and the drop reasons), and a declared application layer; nothing calls either yet |
-| `web` (`src/frontend/web`) | React 19, Vite 8, TanStack Router and Query, Mantine 9, i18next | Renders its shell: a header, the navigation, and pages for planning (`/plans/$date`, where `/` leads to tomorrow's), orders, import, fleet and settings, with not-found and error pages. It is in English, or in Hebrew right to left once its Settings page says so. The planning page shows its date over an empty area for the map (#174), every page but planning and settings says it is not built yet, and no page calls the API ([ADR-143](../ADRs/ADR-143-the-web-app-shell-declares-routes-per-area-opens-in-english-and-renders-no-style-element.md)). Its shared pieces, which no screen uses yet, are form fields over React Hook Form and the shared Zod schemas, one fetch and answer reader for every call, a versioned save that sends the read `ETag`, a message that words the core's refusals for a read or a write, a table over TanStack Table, and save notifications, which stay until closed when they offer an action ([ADR-153](../ADRs/ADR-153-the-web-apps-shared-form-refusal-and-table-pieces.md), [ADR-154](../ADRs/ADR-154-the-audit-of-the-shared-web-pieces-amends-how-a-call-fails-a-notice-closes-and-a-range-reads.md)) |
+| `web` (`src/frontend/web`) | React 19, Vite 8, TanStack Router and Query, Mantine 9, i18next | Renders its shell: a header, the navigation, and pages for planning (`/plans/$date`, where `/` leads to tomorrow's), orders, import, fleet and settings, with not-found and error pages. It is in English, or in Hebrew right to left once its Settings page says so. The planning page shows its date over an empty area for the map (#174), every page but planning and settings says it is not built yet, and no page calls the API ([ADR-143](../ADRs/ADR-143-the-web-app-shell-declares-routes-per-area-opens-in-english-and-renders-no-style-element.md)). Its shared pieces, which no screen uses yet, are form fields over React Hook Form and the shared Zod schemas, one fetch and answer reader for every call, a versioned save that sends the read `ETag`, a message that words the core's refusals for a read or a write, a table over TanStack Table, and save notifications, which stay until closed when they offer an action ([ADR-153](../ADRs/ADR-153-the-web-apps-shared-form-refusal-and-table-pieces.md), [ADR-154](../ADRs/ADR-154-the-audit-of-the-shared-web-pieces-amends-how-a-call-fails-a-notice-closes-and-a-range-reads.md)). Its one client of the core, `coreClient`, is built from `@dispatchflow/api-client`, typed by the contract ([ADR-161](../ADRs/ADR-161-the-apps-client-is-generated-before-every-check-never-committed-from-the-frozen-pair-pinned.md)) |
 | `mobile` (`src/frontend/mobile`) | React Native, Expo SDK 58 | Renders a heading |
 | `research` (`src/research`) | Python, uv; never deployed | Installs `optimizer` and PyVRP in one environment, and imports neither yet: `tests/test_environment.py` only checks that both can be found. `benchmark/`, `simulation/` and `generator/` are declared, empty packages, and `results/` holds only `.gitkeep`. Its benchmark instances will live in the git-ignored `data/` |
 
@@ -122,7 +123,8 @@ wrap. `shared/adapter/in/web` holds `Problems`, the one factory of every error b
 generated from `client-api` by openapi-generator-maven-plugin 7.27.0: one `<Tag>Api` interface per
 tag and a `…Dto` class per schema, written into `target/generated-sources/openapi` at every build
 and never committed ([ADR-160](../ADRs/ADR-160-the-cores-generated-interfaces-take-a-dto-suffix-leave-absent-fields-out-and-are-served-under-a-literal-api-v1-prefix.md)).
-`just gen` runs that generation alone. `@RequiresCapability` will join them.
+`just gen` runs that generation, with the apps' client's, which `just web-gen` runs on its own.
+`@RequiresCapability` will join them.
 `shared/adapter/out/sse` is declared, empty: it will hold the registry of open event streams. These
 two sit below `web`, so a module's controllers, handlers and `sse` adapters reach them without
 depending on it ([ADR-140](../ADRs/ADR-140-the-app-wide-web-package-sits-above-the-modules.md)). `AggregateRoot` is a `@MappedSuperclass` that holds the `@Version`
@@ -190,7 +192,7 @@ named for the outside system or channel it talks to, `persistence` for the modul
 or the technology it wraps when it calls nothing outside the process. Each module's packages and the
 ports they implement are in [ADR-130](../ADRs/ADR-130-every-folder-is-declared-ahead-empty-and-documented.md) (decision 4). The phone app's
 `src/features/<context>` folders, the web app's `audit`, `liveops`, `messaging` and `reporting`
-ones and its `src/components/map/`, the two unfilled folders of `src/frontend/packages/` and the
+ones and its `src/components/map/`, the unfilled folder of `src/frontend/packages/` and the
 infra, docs and data folders the tech stack draws are declared the same way, as `.gitkeep`
 placeholders.
 
@@ -283,7 +285,10 @@ Components meet only at the two contracts under `contracts/`
 - `contracts/optimization-api/v1/openapi.yaml` is served by `optimizer`. It defines one operation,
   `getLiveness`, which is `GET /health/liveness`.
 
-No source file in `src/` holds an HTTP client, and the frontends make no request. The `core`
+`@dispatchflow/api-client` holds the apps' one HTTP client: openapi-fetch over the types
+openapi-typescript generates from `client-api`, sending `X-App`, `X-App-Version` and an `Accept`
+of both media types on every call ([ADR-161](../ADRs/ADR-161-the-apps-client-is-generated-before-every-check-never-committed-from-the-frozen-pair-pinned.md)). The web app builds its `coreClient` from it, sending
+through `fetchFromCore`, but no page calls it, so the frontends make no request. The `core`
 health probe at `/actuator/health` is in neither contract. The one link between components that
 exists is in the build: `research` installs `optimizer` as an editable path dependency
 ([code-structure.md](code-structure.md#how-the-components-depend-on-each-other)). In the
@@ -473,6 +478,16 @@ passes the grants, one that belongs to any other role or owns an object, and a s
   `src/test/importDirection.test.ts` pins each rule
   ([ADR-143](../ADRs/ADR-143-the-web-app-shell-declares-routes-per-area-opens-in-english-and-renders-no-style-element.md),
   [ADR-144](../ADRs/ADR-144-the-web-apps-features-stay-apart-and-its-lower-folders-never-import-upward.md)).
+- **Only `@dispatchflow/api-client` talks to the server.** In the web app's source, ESLint refuses
+  the globals `fetch`, `XMLHttpRequest`, `EventSource` and `WebSocket`, and those names and
+  `sendBeacon` read from any object, but in `src/lib/coreCalls.ts` and the tests, and refuses an
+  import of `fetchFromCore` but in `src/lib/coreClient.ts`; `src/test/fetchGlobal.test.ts` pins
+  each. In the package, `no-restricted-imports` and `no-import-type-side-effects` refuse a value
+  from the generated file, allowing types, so nothing at run time needs it, and
+  `generatedImports.test.ts` pins both. Typed ESLint's `switch-exhaustiveness-check` refuses a
+  `switch` that misses a member of its union, in every package and the web app, and
+  `src/test/switchExhaustiveness.test.ts` pins it
+  ([ADR-161](../ADRs/ADR-161-the-apps-client-is-generated-before-every-check-never-committed-from-the-frozen-pair-pinned.md)).
 - **Flyway owns the schema.** `core` sets `spring.jpa.hibernate.ddl-auto=validate`, so Hibernate
   never changes it ([ADR-007](../ADRs/ADR-007-postgresql-with-flyway-migrations.md), superseded by
   [ADR-041](../ADRs/ADR-041-one-postgresql-schema-per-module-read-and-written-through-jooq.md),

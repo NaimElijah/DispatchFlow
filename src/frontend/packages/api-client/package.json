@@ -1,0 +1,31 @@
+{
+  "name": "@dispatchflow/api-client",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "gen": "openapi-typescript ../../../../contracts/client-api/v1/openapi.yaml --immutable --output src/generated/client-api.ts",
+    "build": "tsc -b",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "openapi-fetch": "0.17.0"
+  },
+  "devDependencies": {
+    "@dispatchflow/eslint-config": "workspace:*",
+    "@dispatchflow/tsconfig": "workspace:*",
+    "@types/node": "24.19.2",
+    "eslint": "10.15.0",
+    "msw": "3.0.7",
+    "openapi-typescript": "7.13.0",
+    "prettier": "3.10.1",
+    "typescript": "6.0.3",
+    "vitest": "5.1.0"
+  }
+}

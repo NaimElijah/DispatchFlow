@@ -57,10 +57,10 @@ check: core-check optimizer-check research-check web-check mobile-check contract
 format: core-format optimizer-format research-format web-format mobile-format infra-format
 
 # Regenerate the code built from the contracts, which is never committed: the core's interfaces and
-# models, which every core build generates too (ADR-043, ADR-160). The web app's client joins with
-# #148.
+# models, which every core build generates too, and the apps' client types, which web-setup and
+# web-check generate too (ADR-043, ADR-160, ADR-161).
 [doc("Regenerate the code built from the contracts")]
-gen: core-gen
+gen: core-gen web-gen
 
 # --- backend/core: Java 25, Spring Boot, Maven ---
 
@@ -142,14 +142,18 @@ research-format:
 
 # --- frontend/web: React, TypeScript, Vite; the pnpm workspace in src/frontend ---
 
-# Install the web app's and the shared packages' dependencies from the workspace lockfile.
+# Install the web app's and the shared packages' dependencies from the workspace lockfile, then
+# generate the client's types, so the editor and every check see them.
+[doc("Install the web app's and the shared packages' dependencies, then generate the client's types")]
 [working-directory('src/frontend')]
-web-setup:
+web-setup: && web-gen
     pnpm ci
 
-# Lint, format check, tests and a production build, in the web app and every shared package.
+# Generate the client's types first (ADR-144 decision 6), then lint, format check, tests and a
+# production build, in the web app and every shared package.
+[doc("Generate the client's types, then lint, format-check, test and build the web app and its packages")]
 [working-directory('src/frontend')]
-web-check:
+web-check: web-gen
     pnpm -r run lint
     pnpm -r run format:check
     pnpm -r run test
@@ -158,6 +162,13 @@ web-check:
 [working-directory('src/frontend')]
 web-format:
     pnpm -r run format
+
+# Generate @dispatchflow/api-client's types from the client API's contract, which is never
+# committed (ADR-161).
+[doc("Generate the apps' client types from the client API's contract")]
+[working-directory('src/frontend')]
+web-gen:
+    pnpm --filter @dispatchflow/api-client run gen
 
 # Start the web app's dev server.
 [working-directory('src/frontend')]

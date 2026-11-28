@@ -2,7 +2,8 @@ import { http, HttpResponse } from 'msw/http'
 import { describe, expect, test, vi } from 'vitest'
 import { server } from '../test/server.ts'
 import { answerOf, fetchFromCore, retryRead } from './coreCalls.ts'
-import { RequestError, type Problem } from './problems.ts'
+import type { Problem } from '@dispatchflow/api-client'
+import { RequestError } from './problems.ts'
 
 const PATH = '/api/v1/examples/e1'
 const address = () => new URL(PATH, window.location.origin)
@@ -160,5 +161,71 @@ describe('calls to the core', () => {
     ]) {
       expect(retryRead(0, error), error.message).toBe(false)
     }
+  })
+})
+
+describe('a success in a type the call did not ask for', () => {
+  const askingForJson = { headers: { Accept: 'application/json, application/problem+json' } }
+
+  test('GivenAPageInPlaceOfTheJsonTheCallAccepts_WhenFetched_ThenItRejectsAsUnexpected', async () => {
+    server.use(http.get(PATH, () => HttpResponse.html('<html>Sign in to the network</html>')))
+
+    const thrown = await thrownBy(() => fetchFromCore(address(), askingForJson))
+
+    expect(thrown).toBeInstanceOf(RequestError)
+    expect((thrown as RequestError).failure).toEqual({ kind: 'unexpected', problem: undefined })
+  })
+
+  test('GivenTheAcceptOnTheRequestItself_WhenAPageComes_ThenItRejectsAsUnexpected', async () => {
+    server.use(http.get(PATH, () => HttpResponse.html('<html>Sign in to the network</html>')))
+
+    const thrown = await thrownBy(() => fetchFromCore(new Request(address(), askingForJson)))
+
+    expect((thrown as RequestError).failure).toEqual({ kind: 'unexpected', problem: undefined })
+  })
+
+  test('GivenJsonWithItsCharset_WhenFetchedAskingForJson_ThenItIsHandedOn', async () => {
+    server.use(
+      http.get(
+        PATH,
+        () =>
+          new HttpResponse('{"id":"e1"}', {
+            headers: { 'Content-Type': 'application/json; charset=utf-8' },
+          }),
+      ),
+    )
+
+    const answer = await fetchFromCore(address(), askingForJson)
+
+    expect(await answer.json()).toEqual({ id: 'e1' })
+  })
+
+  test('GivenASuccessWithNoBody_WhenFetchedAskingForJson_ThenItIsHandedOn', async () => {
+    server.use(http.get(PATH, () => new HttpResponse(null, { status: 204 })))
+
+    const answer = await fetchFromCore(address(), askingForJson)
+
+    expect(answer.status).toBe(204)
+  })
+
+  test('GivenARequestThatNamesNoAcceptOrAnyType_WhenAPageComes_ThenItIsHandedOn', async () => {
+    server.use(http.get(PATH, () => HttpResponse.html('<html>a page</html>')))
+
+    for (const init of [
+      undefined,
+      { headers: { Accept: '*/*' } },
+      { headers: { Accept: 'text/*' } },
+    ]) {
+      const answer = await fetchFromCore(address(), init)
+      expect(await answer.text(), JSON.stringify(init)).toBe('<html>a page</html>')
+    }
+  })
+
+  test('GivenAFailureInAPage_WhenFetchedAskingForJson_ThenItIsHandedOnForTheCallerToRead', async () => {
+    server.use(http.get(PATH, () => HttpResponse.html('<html>Bad Gateway</html>', { status: 502 })))
+
+    const answer = await fetchFromCore(address(), askingForJson)
+
+    expect(answer.status).toBe(502)
   })
 })

@@ -1,10 +1,12 @@
 import { fetchFromCore, type SendResult } from '../lib/coreCalls.ts'
 
 /**
- * Sends a JSON body as the web app's openapi-fetch client will (#148): through `fetchFromCore`,
- * and answering in openapi-fetch's shape, the parsed `data` on a success and the parsed `error`
- * body otherwise, as text when it is no JSON. Tests use it as a versioned save's `send` until the
- * generated client exists.
+ * Sends a JSON body as the web app's generated client does (ADR-161): through `fetchFromCore`, with
+ * the client's `Accept`, and answering in openapi-fetch's shape, the parsed `data` on a success and
+ * the parsed `error` body otherwise, as text when it is no JSON. It sends no `X-App` or
+ * `X-App-Version`, which no form test reads. The form tests send to made-up paths no operation of
+ * the contract has, which the generated client's types refuse, so they use this as a versioned
+ * save's `send` instead.
  *
  * @param method the HTTP method, such as `PUT`
  * @param path the path under the app's origin, such as `/api/v1/examples/e1`
@@ -19,12 +21,19 @@ export async function sendJson(
 ): Promise<SendResult<unknown>> {
   const response = await fetchFromCore(new URL(path, window.location.origin), {
     method,
-    headers: { 'Content-Type': 'application/json', ...headers },
+    headers: {
+      Accept: 'application/json, application/problem+json',
+      'Content-Type': 'application/json',
+      ...headers,
+    },
     body: JSON.stringify(body),
   })
   const text = await response.text()
-  const parsed = parseJson(text)
-  return response.ok ? { response, data: parsed } : { response, error: parsed }
+  if (response.ok) {
+    // As openapi-fetch does: fetchFromCore has refused a success that isn't JSON.
+    return { response, data: text === '' ? undefined : JSON.parse(text) }
+  }
+  return { response, error: parseJson(text) }
 }
 
 function parseJson(text: string): unknown {

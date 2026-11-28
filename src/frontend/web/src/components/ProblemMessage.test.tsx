@@ -1,7 +1,8 @@
 import { screen, within } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { describe, expect, test, vi } from 'vitest'
-import type { Problem, RequestFailure } from '../lib/problems.ts'
+import type { Problem } from '@dispatchflow/api-client'
+import type { RequestFailure } from '../lib/problems.ts'
 import { renderComponent } from '../test/renderComponent.tsx'
 import { ProblemMessage } from './ProblemMessage.tsx'
 
