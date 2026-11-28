@@ -207,8 +207,9 @@ dev_env := justfile_directory() / "infra/deploy/.env"
 # Build and start the whole stack, wait until every service is healthy and the migrate step has
 # finished, print where each one listens, then watch: an edit to the web app, the shared web packages
 # or the optimizer reloads in its container (ADR-151, ADR-156). Ctrl+C stops only the watch, which
-# just then reports as a failed recipe, and leaves the stack running; a change to the core needs
-# Ctrl+C and `just dev` again. Needs Docker.
+# just then reports as a failed recipe, and leaves the stack running; a change to the core, or to
+# the client API's contract in contracts/client-api/v1/, needs Ctrl+C and `just dev` again. Needs
+# Docker.
 [doc("Start the whole development stack, healthy, then reload edits until Ctrl+C")]
 dev: _dev-env
     {{ dev_stack }} up --build --wait

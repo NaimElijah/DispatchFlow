@@ -8,3 +8,8 @@ src/backend/core/target/
 # A .env file anywhere in the build context, not only at its root, never enters an image
 **/.env*
 **/*.env
+# Nor does a key or a certificate, which the root .gitignore keeps out of the repository too
+**/*.pem
+**/*.key
+**/*.p12
+**/*.jks

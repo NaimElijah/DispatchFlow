@@ -48,6 +48,20 @@ SAFE_CADDYFILE = """\
 """
 
 
+SAFE_DOCKERIGNORE = """\
+# Only what the image needs enters the context.
+
+*
+!src/backend/core/
+!contracts/client-api/v1/
+src/backend/core/target/
+**/.env*
+**/*.env
+"""
+CORE_BUILD = {"context": str(check.REPOSITORY), "dockerfile": "src/backend/core/Dockerfile"}
+ENV_FILE_IN_THE_ROOT = "infra/deploy/.env"
+
+
 def services(**by_name: dict[str, Any]) -> check.Configuration:
     """A configuration holding the given services."""
     return {"services": by_name}
@@ -388,6 +402,98 @@ def test_given_a_tiles_caddyfile_that_lets_a_file_read_as_a_page_when_checked_th
     assert any(named in problem for problem in problems), problems
 
 
+def test_given_the_cores_build_as_compose_writes_it_when_checked_then_none_is_named() -> None:
+    """The real Dockerfile.dockerignore, which alone keeps infra/deploy/.env out of the image."""
+    assert check.build_context_problems(services(core={"build": CORE_BUILD})) == []
+
+
+def test_given_a_root_context_with_no_dockerfile_ignore_file_when_checked_then_it_is_named() -> (
+    None
+):
+    """BuildKit falls back to the root's .dockerignore, which nothing here keeps tight."""
+    build = {"context": str(check.REPOSITORY), "dockerfile": "src/frontend/web/Dockerfile.dev"}
+
+    assert check.build_context_problems(services(web={"build": build})) == [
+        "web builds from a context that holds infra/deploy/.env, but has no "
+        "src/frontend/web/Dockerfile.dev.dockerignore beside its Dockerfile: write one that "
+        "starts with *"
+    ]
+
+
+@pytest.mark.parametrize(
+    "build",
+    [
+        {"context": str(check.REPOSITORY / "src/frontend"), "dockerfile": "web/Dockerfile.dev"},
+        {"context": str(check.DEPLOY / "tiles")},
+    ],
+)
+def test_given_a_context_that_cannot_hold_the_env_file_when_checked_then_it_is_left(
+    build: dict[str, str],
+) -> None:
+    assert check.build_context_problems(services(web={"build": build})) == []
+
+
+def test_given_the_ignore_file_as_written_when_checked_then_none_is_named() -> None:
+    assert check.dockerignore_problems(SAFE_DOCKERIGNORE, ENV_FILE_IN_THE_ROOT) == []
+
+
+@pytest.mark.parametrize(
+    ("change", "named"),
+    [
+        (("*\n!src", "!src"), "does not start with *: make * its first pattern"),
+        (("*\n!src", "**\n!src"), "does not start with *"),
+        (("**/.env*\n", ""), "has no **/.env* after its last ! pattern"),
+        (("**/*.env\n", "**/*.env\n!src/frontend/\n"), "has no **/.env* after its last ! pattern"),
+    ],
+)
+def test_given_an_ignore_file_that_may_send_the_env_file_when_checked_then_it_is_named(
+    change: tuple[str, str], named: str
+) -> None:
+    ignore_text = SAFE_DOCKERIGNORE.replace(*change)
+
+    problems = check.dockerignore_problems(ignore_text, ENV_FILE_IN_THE_ROOT)
+
+    assert any(named in problem for problem in problems), problems
+
+
+@pytest.mark.parametrize(
+    "pattern",
+    [
+        "!infra/",
+        "!infra/deploy",
+        "!infra/deploy/.env",
+        "!/infra",
+        "!./infra/deploy/",
+        "!*",
+        "!**",
+        "!*/deploy",
+        "!infra/*/.env",
+        "!.",
+        "!/",
+    ],
+)
+def test_given_a_re_include_of_what_holds_the_env_file_when_checked_then_it_is_named(
+    pattern: str,
+) -> None:
+    """A folder let back in brings everything under it, unless a later pattern takes it out."""
+    ignore_text = SAFE_DOCKERIGNORE.replace(
+        "src/backend/core/target/\n", f"src/backend/core/target/\n{pattern}\n"
+    )
+
+    assert check.dockerignore_problems(ignore_text, ENV_FILE_IN_THE_ROOT) == [
+        f"lets {pattern} back in, and infra/deploy/.env with it: let in only folders that don't "
+        "hold it"
+    ]
+
+
+def test_given_a_context_in_the_env_files_folder_when_checked_then_its_re_include_is_named() -> (
+    None
+):
+    assert check.dockerignore_problems("*\n!.env\n**/.env*\n", ".env") == [
+        "lets !.env back in, and infra/deploy/.env with it: let in only folders that don't hold it"
+    ]
+
+
 def test_given_the_tests_command_when_it_is_read_then_their_own_fsync_off_is_left_out() -> None:
     assert check.tests_server_command(TESTS_AT_18_7) == STACK_COMMAND
 
@@ -627,6 +733,7 @@ def test_given_a_stack_breaking_every_rule_when_checked_statically_then_each_rul
         "services": {
             "postgres": {"image": "postgres:18.6", "command": ["postgres"], **HARDENED},
             "migrate": {
+                "build": {"context": str(check.REPOSITORY), "dockerfile": "Dockerfile.missing"},
                 "depends_on": {"postgres": {"condition": "service_healthy"}},
                 "volumes": [{"type": "volume", "target": "/cache", "volume": {}}],
                 **HARDENED,
@@ -698,6 +805,7 @@ def test_given_a_stack_breaking_every_rule_when_checked_statically_then_each_rul
         "the named volume osrm-data",
         "migrate mounts an anonymous volume at /cache",
         "core mounts the database's volume",
+        "migrate builds from a context that holds infra/deploy/.env",
     ]:
         assert named in problems, named
 

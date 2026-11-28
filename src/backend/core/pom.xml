@@ -131,8 +131,9 @@
 				<directory>src/test/resources</directory>
 			</testResource>
 			<!-- The PostgreSQL init script that creates the two database roles, so the test containers
-			     run the very file development runs (ADR-145). The image's build sees only this module,
-			     and Maven skips a resource folder that doesn't exist, as the image skips the tests. -->
+			     run the very file development runs (ADR-145). The image's build sees only this module
+			     and the client API's contract, not infra/, and Maven skips a resource folder that
+			     doesn't exist, as the image skips the tests. -->
 			<testResource>
 				<directory>${project.basedir}/../../../infra/deploy/postgres/initdb</directory>
 				<targetPath>postgres-initdb</targetPath>
